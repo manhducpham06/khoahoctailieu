@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Khóa Học & Tài Liệu Trực Tuyến - EduVault</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom Style CSS -->
+    <link rel="stylesheet" href="style.css">
+     <link rel="icon" href="meo.png" type="image/png">
+    
+    <!-- Firebase JS SDK (v8) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased text-stone-800">
+
+    <!-- MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ -->
+    <div id="loginScreen" class="min-h-screen flex flex-col items-center justify-center p-4 transition-all duration-500">
+        <div class="bg-white p-8 sm:p-10 rounded-3xl shadow-2xl shadow-orange-950/10 w-full max-w-md border border-orange-100/80 relative overflow-hidden">
+            
+            <div class="text-center mb-6">
+                <div class="bg-red-900/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-red-900 text-3xl shadow-inner">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <h2 id="authTitle" class="text-2xl font-extrabold text-stone-800 tracking-tight">HỆ THỐNG ĐĂNG NHẬP</h2>
+                <p id="authSubtitle" class="text-xs sm:text-sm text-stone-400 mt-1.5">Đăng nhập tài khoản để truy cập bài giảng & tài liệu!</p>
+            </div>
+
+            <!-- Form Đăng Nhập -->
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-extrabold text-stone-500 uppercase tracking-wider mb-1.5">TÊN ĐĂNG NHẬP</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-stone-400"><i class="fa-solid fa-user text-sm"></i></span>
+                        <input type="text" id="loginUsername" placeholder="Nhập username..." required class="w-full pl-10 pr-4 py-3 bg-stone-100/80 border border-stone-200/70 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-900 focus:bg-white focus:outline-none transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-extrabold text-stone-500 uppercase tracking-wider mb-1.5">MẬT KHẨU</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-stone-400"><i class="fa-solid fa-lock text-sm"></i></span>
+                        <input type="password" id="loginPassword" placeholder="Nhập mật khẩu..." required class="w-full pl-10 pr-4 py-3 bg-stone-100/80 border border-stone-200/70 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-900 focus:bg-white focus:outline-none transition">
+                    </div>
+                </div>
+                <button type="submit" id="btnLogin" class="btn-bouncy w-full bg-red-900 hover:bg-red-950 text-white font-bold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-red-900/20 text-sm flex items-center justify-center">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i> Đăng Nhập
+                </button>
+            </form>
+
+            <!-- Form Đăng Ký -->
+            <form id="registerForm" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-[11px] font-extrabold text-stone-500 uppercase tracking-wider mb-1.5">Họ và Tên</label>
+                    <input type="text" id="regName" placeholder="Nhập họ và tên..." required class="w-full px-4 py-3 bg-stone-100/80 border border-stone-200/70 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-900 focus:bg-white focus:outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-extrabold text-stone-500 uppercase tracking-wider mb-1.5">Tên đăng nhập</label>
+                    <input type="text" id="regUsername" placeholder="Tạo username..." required class="w-full px-4 py-3 bg-stone-100/80 border border-stone-200/70 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-900 focus:bg-white focus:outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-extrabold text-stone-500 uppercase tracking-wider mb-1.5">Mật khẩu</label>
+                    <input type="password" id="regPassword" placeholder="Tạo mật khẩu..." required class="w-full px-4 py-3 bg-stone-100/80 border border-stone-200/70 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-900 focus:bg-white focus:outline-none transition">
+                </div>
+                <button type="submit" id="btnRegister" class="btn-bouncy w-full bg-amber-800 hover:bg-amber-900 text-white font-bold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-amber-900/20 text-sm flex items-center justify-center">
+                    <i class="fa-solid fa-user-plus mr-2"></i> Đăng Ký Tài Khoản
+                </button>
+            </form>
+
+            <div class="mt-6 text-center text-xs border-t border-stone-100 pt-4">
+                <button id="btnToggleAuth" onclick="toggleAuthMode()" class="text-red-900 hover:text-red-950 font-bold transition">
+                    Chưa có tài khoản? Đăng ký ngay
+                </button>
+            </div>
+
+            <div class="mt-5 pt-3 border-t border-stone-100/80 text-center flex items-center justify-center space-x-1.5 text-xs text-stone-400 font-semibold">
+                <i class="fa-solid fa-shield-halved text-red-900"></i>
+                <span>Admin: <strong class="text-stone-700 font-bold">ManhDucPham</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MÀN HÌNH CHÍNH CỦA ỨNG DỤNG -->
+    <div id="appContainer" class="hidden min-h-screen flex flex-col">
+        
+        <!-- HEADER -->
+        <header class="bg-white/90 backdrop-blur-md shadow-xs border-b border-orange-100/80 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-red-900 text-white p-2.5 rounded-xl shadow-md shadow-red-900/20"><i class="fa-solid fa-graduation-cap text-xl"></i></div>
+                    <div>
+                        <h1 class="text-lg font-extrabold text-stone-800 tracking-tight leading-none">EduVault</h1>
+                        <span class="text-[10px] text-stone-400 font-medium">Hệ Thống Bài Giảng & Kho Tài Liệu Học Tập</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span id="userBadge" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-orange-50 text-red-900 border border-orange-200"></span>
+                    <button onclick="logout()" class="btn-bouncy text-xs font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3.5 py-2 rounded-xl transition">
+                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- NAVIGATION TABS -->
+        <div class="bg-white border-b border-orange-100/80 overflow-x-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex space-x-4 min-w-max">
+                    <button id="tabBtnCourses" onclick="switchTab('courses')" class="btn-bouncy py-3.5 px-3 border-b-2 font-bold text-sm border-red-900 text-red-900 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-video text-base"></i>
+                        <span>KHÓA HỌC VIDEO</span>
+                    </button>
+                    <button id="tabBtnDocs" onclick="switchTab('docs')" class="btn-bouncy py-3.5 px-3 border-b-2 font-semibold text-sm border-transparent text-stone-500 hover:text-stone-800 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-folder-open text-base"></i>
+                        <span>TÀI LIỆU CHUNG</span>
+                    </button>
+                    <button id="tabBtnStudentDocs" onclick="switchTab('studentDocs')" class="btn-bouncy py-3.5 px-3 border-b-2 font-semibold text-sm border-transparent text-stone-500 hover:text-stone-800 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-user-graduate text-base"></i>
+                        <span>TÀI LIỆU SINH VIÊN</span>
+                    </button>
+                    <button id="tabBtnCommunityDocs" onclick="switchTab('communityDocs')" class="btn-bouncy py-3.5 px-3 border-b-2 font-semibold text-sm border-transparent text-stone-500 hover:text-stone-800 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-users-line text-base"></i>
+                        <span>TÀI LIỆU ĐÓNG GÓP CHUNG</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+            
+            <!-- TAB 1: KHÓA HỌC VIDEO -->
+            <div id="tabContentCourses" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div id="videoContainer" class="aspect-video bg-stone-900 rounded-2xl overflow-hidden shadow-xl border border-stone-800 relative flex items-center justify-center">
+                        <div class="text-center text-stone-400 p-6">
+                            <i class="fa-solid fa-circle-play text-6xl mb-3 text-red-800 opacity-80"></i>
+                            <p class="font-semibold text-stone-300">Chọn một bài học ở danh sách bên dưới để bắt đầu xem</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <h3 class="text-base font-extrabold text-stone-800 flex items-center whitespace-nowrap">
+                                <i class="fa-solid fa-list-ul text-red-900 mr-2"></i> Danh Sách Bài Học
+                            </h3>
+                            <div class="flex space-x-2 w-full sm:w-auto">
+                                <select id="filterClass" onchange="loadLessons()" class="px-3 py-1.5 border border-stone-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-red-900 bg-orange-50 text-red-950 shadow-2xs">
+                                    <option value="">Tất cả khối học</option>
+                                    <option value="tong-on">Phần Tổng Ôn</option>
+                                    <option value="10">Lớp 10</option>
+                                    <option value="11">Lớp 11</option>
+                                    <option value="12">Lớp 12</option>
+                                </select>
+                                <select id="filterChapter" onchange="loadLessons()" class="px-3 py-1.5 border border-stone-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-red-900 bg-white text-stone-700 shadow-2xs min-w-[140px]">
+                                    <option value="">Tất cả chương</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="lessonList" class="space-y-3 max-h-[500px] overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+
+                <div id="adminPanelsCourses" class="hidden space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <h3 id="formTitle" class="text-base font-bold text-stone-800 mb-4 flex items-center">
+                            <i class="fa-solid fa-cloud-arrow-up text-red-900 mr-2"></i> Tải Lên Bài Mới
+                        </h3>
+                        <form id="lessonForm" class="space-y-4">
+                            <input type="hidden" id="editingLessonId">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-600 mb-1">Mục / Khối</label>
+                                    <select id="lessonClass" class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-red-900 bg-white">
+                                        <option value="tong-on">Phần Tổng Ôn</option>
+                                        <option value="10">Lớp 10</option>
+                                        <option value="11">Lớp 11</option>
+                                        <option value="12">Lớp 12</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-600 mb-1">Tên Chương</label>
+                                    <input type="text" id="lessonChapter" placeholder="Chương 1..." class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Tên Bài Học</label>
+                                <input type="text" id="lessonTitle" placeholder="Nhập tiêu đề bài học..." required class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                            </div>
+                            
+                            <!-- BỔ SUNG: Cho phép Tải tệp HOẶC Nhập URL Link Video -->
+                            <div class="space-y-2 bg-red-50/50 p-3 rounded-xl border border-red-100">
+                                <label class="block text-xs font-bold text-red-900">Video Bài Học (Tệp MP4 hoặc URL Link)</label>
+                                <input type="file" id="videoFile" accept="video/*" class="w-full text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-orange-100 file:text-red-900 file:font-semibold">
+                                <input type="url" id="lessonVideoLink" placeholder="Hoặc dán URL Video (Youtube, Drive, Link MP4...)" class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-red-900 bg-white">
+                            </div>
+
+                            <div class="space-y-2 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
+                                <label class="block text-xs font-bold text-amber-900">Tài liệu đính kèm (PDF/Doc)</label>
+                                <input type="file" id="docFile" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
+                                <input type="url" id="lessonDocLink" placeholder="Hoặc dán URL tài liệu..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-700 bg-white">
+                            </div>
+                            <div class="space-y-2 bg-stone-100/80 p-3 rounded-xl border border-stone-200">
+                                <label class="block text-xs font-bold text-stone-800">Bài tập về nhà / Đáp án</label>
+                                <input type="file" id="hwFile" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
+                                <input type="url" id="lessonAnswerLink" placeholder="Hoặc dán URL bài tập..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-stone-600 bg-white">
+                            </div>
+                            <div class="flex space-x-2 pt-1">
+                                <button type="submit" id="btnUploadLesson" class="btn-bouncy flex-1 bg-red-900 hover:bg-red-950 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-red-900/20">
+                                    <i class="fa-solid fa-upload mr-1"></i> Phát Hành
+                                </button>
+                                <button type="button" id="btnCancelEdit" onclick="resetLessonForm()" class="btn-bouncy hidden bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-2 px-3 rounded-xl text-xs transition">Hủy</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <h3 class="text-base font-bold text-stone-800 mb-3 flex items-center">
+                            <i class="fa-solid fa-user-shield text-red-900 mr-2"></i> Cấp Quyền Xem Video
+                        </h3>
+                        <div class="space-y-2">
+                            <input type="text" id="grantUsername" placeholder="Nhập username học sinh..." class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                            <button onclick="grantVideoAccess()" id="btnGrantAccess" class="btn-bouncy w-full bg-amber-800 hover:bg-amber-900 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-amber-900/20">
+                                <i class="fa-solid fa-check-circle mr-1"></i> Mở Khóa Tài Khoản
+                            </button>
+                        </div>
+                        <div class="mt-5 border-t border-stone-100 pt-3">
+                            <h4 class="font-bold text-stone-700 text-xs mb-2 flex items-center">
+                                <i class="fa-solid fa-users text-red-900 mr-1"></i> Danh sách học sinh
+                            </h4>
+                            <div id="accountListContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: KHO TÀI LIỆU CHUNG -->
+            <div id="tabContentDocs" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
+                            <h3 class="text-base font-extrabold text-stone-800 flex items-center">
+                                <i class="fa-solid fa-folder-tree text-red-900 mr-2"></i> Kho Tài Liệu Phân Loại
+                            </h3>
+                            <div class="flex space-x-1.5">
+                                <span class="px-2.5 py-1 bg-amber-100 text-amber-900 text-[11px] rounded-lg font-bold">THPT</span>
+                                <span class="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] rounded-lg font-bold">ĐGNL</span>
+                                <span class="px-2.5 py-1 bg-rose-100 text-rose-900 text-[11px] rounded-lg font-bold">ĐGTD</span>
+                            </div>
+                        </div>
+                        <div id="documentList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+                </div>
+
+                <div id="adminPanelsDocs" class="hidden space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <h3 id="formDocTitle" class="text-base font-bold text-stone-800 mb-4 flex items-center">
+                            <i class="fa-solid fa-file-arrow-up text-red-900 mr-2"></i> Đăng Tài Liệu Mới
+                        </h3>
+                        <form id="docManagerForm" class="space-y-4">
+                            <input type="hidden" id="editingDocId">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Phân Loại Đề Thi</label>
+                                <select id="docCategory" class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-red-900 bg-white">
+                                    <option value="THPT">Kỳ thi THPT Quốc Gia</option>
+                                    <option value="DGNL">Đánh Giá Năng Lực (ĐGNL)</option>
+                                    <option value="DGTD">Đánh Giá Tư Duy (ĐGTD)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Tiêu Đề Tài Liệu</label>
+                                <input type="text" id="docMainTitle" placeholder="Nhập tên tài liệu..." required class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                            </div>
+                            <div class="space-y-2 bg-amber-50/70 p-3 rounded-xl border border-amber-100">
+                                <label class="block text-xs font-bold text-amber-900">Tải Lên Đề Bài / Tài Liệu</label>
+                                <input type="file" id="docMainFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
+                                <input type="url" id="docMainLink" placeholder="Hoặc dán URL tài liệu..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-700 bg-white">
+                            </div>
+                            <div class="space-y-2 bg-rose-50/70 p-3 rounded-xl border border-rose-100">
+                                <label class="block text-xs font-bold text-rose-900">Tải Lên Đáp Án Chi Tiết</label>
+                                <input type="file" id="docAnswerFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
+                                <input type="url" id="docAnswerLink" placeholder="Hoặc dán URL đáp án..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-rose-800 bg-white">
+                            </div>
+                            <div class="flex space-x-2 pt-1">
+                                <button type="submit" id="btnUploadDocManager" class="btn-bouncy flex-1 bg-red-900 hover:bg-red-950 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-red-900/20">
+                                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Lưu & Đăng Bài
+                                </button>
+                                <button type="button" id="btnCancelEditDoc" onclick="resetDocForm()" class="btn-bouncy hidden bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-2 px-3 rounded-xl text-xs transition">Hủy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: TÀI LIỆU SINH VIÊN -->
+            <div id="tabContentStudentDocs" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
+                            <h3 class="text-base font-extrabold text-stone-800 flex items-center">
+                                <i class="fa-solid fa-user-graduate text-red-900 mr-2"></i> Kho Tài Liệu Sinh Viên & Đại Học
+                            </h3>
+                            <div class="flex space-x-1.5">
+                                <span class="px-2.5 py-1 bg-blue-100 text-blue-900 text-[11px] rounded-lg font-bold">Giáo Trình</span>
+                                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[11px] rounded-lg font-bold">Đề Thi HK</span>
+                                <span class="px-2.5 py-1 bg-purple-100 text-purple-900 text-[11px] rounded-lg font-bold">Đồ Án</span>
+                            </div>
+                        </div>
+                        <div id="studentDocList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+                </div>
+
+                <div id="adminPanelsStudentDocs" class="hidden space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <h3 id="formStudentDocTitle" class="text-base font-bold text-stone-800 mb-4 flex items-center">
+                            <i class="fa-solid fa-file-circle-plus text-red-900 mr-2"></i> Đăng Tài Liệu Sinh Viên
+                        </h3>
+                        <form id="studentDocForm" class="space-y-4">
+                            <input type="hidden" id="editingStudentDocId">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Loại Tài Liệu</label>
+                                <select id="studentDocCategory" class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-red-900 bg-white">
+                                    <option value="Giáo Trình">Giáo Trình / Slide Bài Giảng</option>
+                                    <option value="Đề Thi HK">Đề Thi Học Kỳ / Đáp Án</option>
+                                    <option value="Bài Tập Lớn">Bài Tập Lớn / Báo Cáo / Đồ Án</option>
+                                    <option value="Chuyên Ngành">Tài Liệu Chuyên Ngành Khác</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Tên Tệp / Tiêu Đề</label>
+                                <input type="text" id="studentDocTitle" placeholder="Nhập tên tài liệu sinh viên..." required class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                            </div>
+                            <div class="space-y-2 bg-blue-50/70 p-3 rounded-xl border border-blue-100">
+                                <label class="block text-xs font-bold text-blue-900">File Đính Kèm</label>
+                                <input type="file" id="studentDocFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
+                                <input type="url" id="studentDocLink" placeholder="Hoặc dán URL liên kết..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-700 bg-white">
+                            </div>
+                            <div class="flex space-x-2 pt-1">
+                                <button type="submit" id="btnUploadStudentDoc" class="btn-bouncy flex-1 bg-red-900 hover:bg-red-950 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-red-900/20">
+                                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Đăng Tài Liệu
+                                </button>
+                                <button type="button" id="btnCancelEditStudentDoc" onclick="resetStudentDocForm()" class="btn-bouncy hidden bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-2 px-3 rounded-xl text-xs transition">Hủy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: TÀI LIỆU ĐÓNG GÓP CHUNG -->
+            <div id="tabContentCommunityDocs" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
+                            <div>
+                                <h3 class="text-base font-extrabold text-stone-800 flex items-center">
+                                    <i class="fa-solid fa-users-line text-red-900 mr-2"></i> Kho Tài Liệu Đóng Góp Chung
+                                </h3>
+                                <p class="text-xs text-stone-500 mt-1">Mọi thành viên đều có thể tải file chia sẻ lên hệ thống!</p>
+                            </div>
+                            <span class="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[11px] rounded-lg font-bold">Cộng Đồng chia sẻ</span>
+                        </div>
+                        <div id="communityDocList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                        <h3 class="text-base font-bold text-stone-800 mb-2 flex items-center">
+                            <i class="fa-solid fa-upload text-emerald-700 mr-2"></i> Chia Sẻ Tài Liệu Của Bạn
+                        </h3>
+                        <p class="text-xs text-stone-500 mb-4 leading-relaxed">
+                            Đóng góp đề thi, bài giải hoặc tài liệu hay để hỗ trợ các thành viên khác cùng học tập.
+                        </p>
+                        
+                        <form id="communityUploadForm" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Môn học / Chủ đề</label>
+                                <input type="text" id="communitySubject" placeholder="VD: Toán Cao Cấp, Vật Lý, Anh Văn..." required class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-stone-600 mb-1">Tiêu đề / Tên tài liệu</label>
+                                <input type="text" id="communityTitle" placeholder="VD: Đề cương ôn tập Toán C2..." required class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                            </div>
+                            <div class="space-y-2 bg-emerald-50/70 p-3 rounded-xl border border-emerald-100">
+                                <label class="block text-xs font-bold text-emerald-900">Tải File Lên (PDF, Word, Zip...)</label>
+                                <input type="file" id="communityFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.png,.jpg" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
+                                <input type="url" id="communityLink" placeholder="Hoặc dán Link Google Drive / Onedrive..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-700 bg-white">
+                            </div>
+
+                            <button type="submit" id="btnUploadCommunityDoc" class="btn-bouncy w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-emerald-800/20 flex items-center justify-center">
+                                <i class="fa-solid fa-share-nodes mr-1.5"></i> Đăng Tải Lên Cộng Đồng
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="mt-auto py-4 bg-white/70 backdrop-blur-md border-t border-orange-100/80 text-center text-xs text-stone-400 font-medium">
+            <div class="flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-shield-halved text-red-900"></i>
+                <span>Quản trị viên hệ thống: <strong class="text-stone-700 font-bold">ManhDucPham</strong></span>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- HỘP THOẠI MODAL -->
+    <div id="custom-confirm" class="fixed inset-0 bg-stone-900/60 z-50 hidden items-center justify-center backdrop-blur-xs p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-stone-100">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-red-900 text-lg shadow-inner">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+                <h3 class="text-base font-extrabold text-stone-800">Thông báo</h3>
+            </div>
+            <p id="confirm-text" class="text-stone-600 text-xs mb-5 leading-relaxed">Nội dung thông báo...</p>
+            <div class="flex justify-end space-x-2">
+                <button id="confirm-no" class="btn-bouncy px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition">Hủy</button>
+                <button id="confirm-yes" class="btn-bouncy px-4 py-2 bg-red-900 hover:bg-red-950 text-white rounded-xl text-xs font-bold transition shadow-md shadow-red-900/20">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

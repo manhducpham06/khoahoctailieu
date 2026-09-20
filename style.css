@@ -1,0 +1,87 @@
+/* ============================================================
+   BỘ MÀU TÔNG NÂU ĐỎ (MAHOGANY / WARM REDDISH-BROWN)
+   ============================================================ */
+
+:root {
+    --primary: #8b2612;        /* Nâu đỏ chuẩn */
+    --primary-hover: #701c0b;  /* Nâu đỏ đậm khi hover */
+    --primary-light: #fbeee9;  /* Nâu đỏ pastel nhạt cho background */
+    --bg-gradient: linear-gradient(135deg, #fdf8f6 0%, #f7eded 50%, #f1e4e0 100%);
+}
+
+body {
+    background: var(--bg-gradient) !important;
+    background-attachment: fixed;
+    min-height: 100vh;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #271c19;
+}
+
+/* Scrollbar mượt tông nâu đỏ nhạt */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(251, 238, 233, 0.6);
+}
+::-webkit-scrollbar-thumb {
+    background: #e2b1a5;
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #c27b68;
+}
+
+/* HIỆU ỨNG NÚT NHÚN BOUNCY */
+.btn-bouncy {
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, box-shadow 0.2s ease !important;
+    will-change: transform;
+}
+.btn-bouncy:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.02);
+}
+.btn-bouncy:active:not(:disabled) {
+    transform: translateY(1px) scale(0.96) !important;
+}
+
+.bg-white {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#lessonList > div, #documentList > div, #studentDocList > div, #communityDocList > div {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#lessonList > div:hover, #documentList > div:hover, #studentDocList > div:hover, #communityDocList > div:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(139, 38, 18, 0.12);
+}
+
+/* Form Input */
+input[type="text"], input[type="password"], input[type="url"], select {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease !important;
+}
+input:focus, select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(139, 38, 18, 0.18) !important;
+    outline: none !important;
+    background-color: #ffffff !important;
+}
+
+/* Modal Popup Animation */
+#custom-confirm > div {
+    animation: modalPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes modalPop {
+    0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-online { background-color: #10b981; box-shadow: 0 0 6px #10b981; }
+.status-offline { background-color: #94a3b8; }
