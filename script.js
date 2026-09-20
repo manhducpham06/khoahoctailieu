@@ -18,11 +18,46 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const CLOUDINARY_PRESET = "manhducpham";
 
-// TÊN MIỀN GIẢ DÙNG ĐỂ CHUYỂN "username" THÀNH EMAIL CHO FIREBASE AUTH
-// (Firebase Authentication yêu cầu định danh dạng email)
 const AUTH_EMAIL_DOMAIN = "@eduvault.local";
 function usernameToEmail(username) {
     return username + AUTH_EMAIL_DOMAIN;
+}
+
+// HÀM ESCAPE KÝ TỰ AN TOÀN CHỐNG XSS & ATTRIBUTE INJECTION
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Chỉ cho phép link http/https khi hiển thị làm <a href>, chặn các chiêu
+// nhúng "javascript:alert(1)" hay "data:text/html,..." vào ô dán link,
+// vì href kiểu đó sẽ chạy mã ngay khi người khác bấm vào link.
+function isSafeUrl(url) {
+    if (!url) return false;
+    try {
+        return /^https?:\/\//i.test(String(url).trim());
+    } catch (e) {
+        return false;
+    }
+}
+
+// Kiểm tra các ô link do người dùng tự dán trước khi lưu vào database.
+// Trả về true nếu tất cả hợp lệ (rỗng hoặc bắt đầu bằng http/https);
+// nếu có link nguy hiểm (javascript:, data:...) thì báo lỗi và trả về false.
+function validateLinksOrAlert(linksObj) {
+    for (const label in linksObj) {
+        const value = linksObj[label];
+        if (value && !isSafeUrl(value)) {
+            showCustomAlert(`Đường dẫn "${escapeHTML(label)}" không hợp lệ! Chỉ chấp nhận link bắt đầu bằng http:// hoặc https://`);
+            return false;
+        }
+    }
+    return true;
 }
 
 // HÀM ĐỊNH DẠNG THỜI GIAN THỰC
@@ -38,14 +73,11 @@ function formatTimestamp(timestamp) {
 // ==========================================
 // KHỞI ĐỘNG HỆ THỐNG
 // ==========================================
-// Dùng trạng thái đăng nhập thật từ Firebase Auth làm nguồn xác thực duy nhất
-// (an toàn hơn nhiều so với chỉ tin vào localStorage, vốn có thể bị người dùng tự sửa)
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         try {
             const studentDoc = await db.collection("students").doc(user.uid).get();
             if (!studentDoc.exists) {
-                // Có tài khoản Auth nhưng không có hồ sơ tương ứng -> đăng xuất cho an toàn
                 await doLogoutLogic();
                 return;
             }
@@ -129,7 +161,7 @@ function showDashboard() {
             ? `<span class="ml-1.5 text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md"><i class="fa-solid fa-check"></i> Đã mở khóa</span>`
             : `<span class="ml-1.5 text-[10px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md"><i class="fa-solid fa-lock"></i> Chưa cấp quyền</span>`;
             
-        userBadge.innerHTML = `<i class="fa-solid fa-user mr-1 text-red-900"></i> ${studentName} ${accessBadge}`;
+        userBadge.innerHTML = `<i class="fa-solid fa-user mr-1 text-red-900"></i> ${escapeHTML(studentName)} ${accessBadge}`;
         
         if (adminPanelsCourses) adminPanelsCourses.classList.add("hidden");
         if (adminPanelsDocs) adminPanelsDocs.classList.add("hidden");
@@ -183,12 +215,9 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
             return;
         }
 
-        // Tạo tài khoản thật trên Firebase Authentication (mật khẩu được Firebase
-        // mã hóa/bảo mật phía máy chủ, không lưu dạng có thể đọc lại được nữa)
         const cred = await auth.createUserWithEmailAndPassword(usernameToEmail(user), rawPass);
         const uid = cred.user.uid;
 
-        // Hồ sơ học sinh lưu tại students/{uid} — id trùng với Firebase Auth uid
         await db.collection("students").doc(uid).set({
             name: name,
             username: user,
@@ -198,8 +227,7 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        await auth.signOut(); // đăng ký xong không tự động đăng nhập, để quay lại màn hình đăng nhập
-
+        await auth.signOut();
         showCustomAlert("Đăng ký thành công! Vui lòng đăng nhập.");
         document.getElementById("registerForm").reset();
         toggleAuthMode();
@@ -225,8 +253,6 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Kiểm tra...';
 
     try {
-        // onAuthStateChanged (đăng ký ở trên) sẽ lo phần còn lại: đọc hồ sơ,
-        // set localStorage và gọi showDashboard() khi đăng nhập thành công.
         await auth.signInWithEmailAndPassword(usernameToEmail(username), password);
         document.getElementById("loginForm").reset();
     } catch (error) {
@@ -273,13 +299,10 @@ async function uploadFileToCloudinary(file) {
         res = await fetch(uploadUrl, { method: "POST", body: formData });
         data = await res.json();
     } catch (networkError) {
-        // Lỗi mạng / CORS / không kết nối được tới Cloudinary
         console.error("Lỗi kết nối tới Cloudinary:", networkError);
         throw new Error("Không kết nối được tới Cloudinary (kiểm tra mạng/CORS).");
     }
 
-    // Cloudinary trả về lỗi rõ ràng trong data.error khi request thất bại
-    // (vd: sai upload_preset, preset chưa Unsigned, file vượt quá giới hạn dung lượng...)
     if (!res.ok || data.error) {
         const msg = (data && data.error && data.error.message) || `HTTP ${res.status}`;
         console.error("Lỗi Upload Cloudinary:", msg, data);
@@ -307,7 +330,9 @@ if (lessonForm) {
         const videoLink = document.getElementById("lessonVideoLink").value.trim();
         const docLink = document.getElementById("lessonDocLink").value.trim();
         const answerLink = document.getElementById("lessonAnswerLink").value.trim();
-        
+
+        if (!validateLinksOrAlert({ "Link Video": videoLink, "Link Tài liệu": docLink, "Link Đáp án": answerLink })) return;
+
         const videoFile = document.getElementById("videoFile").files[0];
         const docFile = document.getElementById("docFile").files[0];
         const hwFile = document.getElementById("hwFile").files[0];
@@ -329,7 +354,6 @@ if (lessonForm) {
 
             btnUpload.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Tải file...';
             
-            // Xử lý ưu tiên Link Video hoặc Upload Video File
             if (videoFile) {
                 updateData.videoUrl = await uploadFileToCloudinary(videoFile);
             } else if (videoLink) {
@@ -359,11 +383,6 @@ if (lessonForm) {
     });
 }
 
-function extractLessonNumber(title) {
-    const match = title.match(/bài\s*(\d+)/i);
-    return match ? parseInt(match[1], 10) : 9999;
-}
-
 function loadLessons() {
     const lessonList = document.getElementById("lessonList");
     const filterClass = document.getElementById("filterClass")?.value || "";
@@ -373,7 +392,6 @@ function loadLessons() {
     if (!lessonList) return;
     const role = localStorage.getItem("userRole");
 
-    // Sắp xếp bài giảng theo thời gian thực (tạo gần đây lên trước hoặc theo thứ tự)
     db.collection("lessons").orderBy("createdAt", "asc").onSnapshot((snapshot) => {
         lessonList.innerHTML = "";
         if (snapshot.empty) {
@@ -427,41 +445,47 @@ function loadLessons() {
             return;
         }
 
-        let htmlContent = '';
-
         if (tongOnLessons.length > 0 && (filterClass === '' || filterClass === 'tong-on') && !selectedChapter) {
-            htmlContent += `
-                <div class="mb-5">
-                    <div class="flex items-center space-x-2 bg-gradient-to-r from-amber-800 to-amber-900 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider mb-2.5 shadow-xs">
-                        <i class="fa-solid fa-star text-amber-300"></i>
-                        <span>PHẦN TỔNG ÔN TẬP</span>
-                    </div>
-                    <div class="space-y-2">
+            const tongOnHeader = document.createElement("div");
+            tongOnHeader.className = "mb-2.5";
+            tongOnHeader.innerHTML = `
+                <div class="flex items-center space-x-2 bg-gradient-to-r from-amber-800 to-amber-900 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider mb-2.5 shadow-xs">
+                    <i class="fa-solid fa-star text-amber-300"></i>
+                    <span>PHẦN TỔNG ÔN TẬP</span>
+                </div>
             `;
+            const tongOnContainer = document.createElement("div");
+            tongOnContainer.className = "space-y-2 mb-5";
             tongOnLessons.forEach((lesson, idx) => {
-                htmlContent += renderLessonItem(lesson, idx + 1, role);
+                tongOnContainer.appendChild(renderLessonItemDOM(lesson, idx + 1, role));
             });
-            htmlContent += `</div></div>`;
+            tongOnHeader.appendChild(tongOnContainer);
+            lessonList.appendChild(tongOnHeader);
         }
 
         if (filterClass !== 'tong-on') {
             Object.keys(groupedByChapter).sort().forEach((chapter) => {
-                htmlContent += `
-                    <div class="mb-5 last:mb-0">
-                        <div class="flex items-center space-x-2 bg-stone-800 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider mb-2.5 shadow-xs">
-                            <i class="fa-solid fa-book-open text-amber-500"></i>
-                            <span>${chapter}</span>
-                        </div>
-                        <div class="space-y-2">
+                const chapterWrapper = document.createElement("div");
+                chapterWrapper.className = "mb-5 last:mb-0";
+                
+                const safeChapterTitle = escapeHTML(chapter);
+                chapterWrapper.innerHTML = `
+                    <div class="flex items-center space-x-2 bg-stone-800 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider mb-2.5 shadow-xs">
+                        <i class="fa-solid fa-book-open text-amber-500"></i>
+                        <span>${safeChapterTitle}</span>
+                    </div>
                 `;
+                const lessonsContainer = document.createElement("div");
+                lessonsContainer.className = "space-y-2";
+                
                 groupedByChapter[chapter].forEach((lesson, idx) => {
-                    htmlContent += renderLessonItem(lesson, idx + 1, role);
+                    lessonsContainer.appendChild(renderLessonItemDOM(lesson, idx + 1, role));
                 });
-                htmlContent += `</div></div>`;
+                chapterWrapper.appendChild(lessonsContainer);
+                lessonList.appendChild(chapterWrapper);
             });
         }
 
-        lessonList.innerHTML = htmlContent;
         updateChapterDropdown(uniqueChapters, selectedChapter);
     });
 }
@@ -480,51 +504,103 @@ function updateChapterDropdown(uniqueChapters, currentSelected) {
     });
 }
 
-function renderLessonItem(lesson, indexNum, role) {
-    let actionBtns = "";
-    if (role === "admin") {
-        const safeTitle = lesson.title.replace(/'/g, "\\'");
-        const safeChapter = (lesson.chapter || '').replace(/'/g, "\\'");
-        actionBtns = `
-            <div class="flex items-center space-x-1 ml-2">
-                <button onclick="editLesson('${lesson.id}', '${safeTitle}', '${lesson.class || ''}', '${safeChapter}')" class="btn-bouncy text-amber-700 hover:bg-amber-50 p-1.5 rounded-lg transition text-xs"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button onclick="deleteLesson('${lesson.id}')" class="btn-bouncy text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition text-xs"><i class="fa-solid fa-trash"></i></button>
-            </div>
-        `;
-    }
+// SỬ DỤNG DOM API AN TOÀN CHO BÀI HỌC
+function renderLessonItemDOM(lesson, indexNum, role) {
+    const item = document.createElement("div");
+    item.className = "flex items-center justify-between p-3 rounded-2xl bg-white border border-stone-200/80 hover:border-red-900/40 hover:shadow-sm transition cursor-pointer group";
+    item.addEventListener("click", () => playVideo(lesson.videoUrl || ''));
 
-    const finalDocUrl = lesson.docFileUrl || lesson.docLink || lesson.docUrl;
-    const finalHwUrl = lesson.hwFileUrl || lesson.answerLink;
+    const leftDiv = document.createElement("div");
+    leftDiv.className = "flex items-center space-x-3 flex-1 min-w-0";
 
-    const docHtml = finalDocUrl ? `<a href="${finalDocUrl}" target="_blank" class="btn-bouncy text-[10px] bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200 font-bold" onclick="event.stopPropagation()"><i class="fa-solid fa-file-pdf mr-1"></i> Tài liệu</a>` : '';
-    const hwHtml = finalHwUrl ? `<a href="${finalHwUrl}" target="_blank" class="btn-bouncy text-[10px] bg-stone-100 text-stone-800 px-2 py-0.5 rounded-md border border-stone-200 font-bold" onclick="event.stopPropagation()"><i class="fa-solid fa-pen-to-square mr-1"></i> Bài tập</a>` : '';
-    
+    const badgeNum = document.createElement("div");
+    badgeNum.className = "w-8 h-8 rounded-xl bg-red-900 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-xs group-hover:bg-red-950 transition";
+    badgeNum.textContent = indexNum;
+
+    const infoDiv = document.createElement("div");
+    infoDiv.className = "flex items-center space-x-3 flex-1 min-w-0";
+
+    const titleDiv = document.createElement("div");
+    titleDiv.className = "flex-1 min-w-0";
+
+    const pTitle = document.createElement("p");
+    pTitle.className = "font-bold text-stone-800 text-xs sm:text-sm truncate group-hover:text-red-900 transition";
+    pTitle.textContent = lesson.title || '';
+
+    const metaDiv = document.createElement("div");
+    metaDiv.className = "flex items-center space-x-2 mt-1 flex-wrap gap-y-1";
+
     const isTongOnClass = lesson.class === 'tong-on';
     const badgeText = isTongOnClass ? 'Tổng Ôn' : `Lớp ${lesson.class || '10'}`;
-    const badgeStyle = isTongOnClass ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-orange-50 text-red-900 border border-orange-200';
-    
-    // Hiển thị ngày đăng thời gian thực
-    const timeCreated = formatTimestamp(lesson.createdAt);
+    const badgeClass = isTongOnClass ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-orange-50 text-red-900 border border-orange-200';
 
-    return `
-        <div class="flex items-center justify-between p-3 rounded-2xl bg-white border border-stone-200/80 hover:border-red-900/40 hover:shadow-sm transition cursor-pointer group" onclick="playVideo('${lesson.videoUrl || ''}')">
-            <div class="flex items-center space-x-3 flex-1 min-w-0">
-                <div class="w-8 h-8 rounded-xl bg-red-900 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-xs group-hover:bg-red-950 transition">
-                    ${indexNum}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="font-bold text-stone-800 text-xs sm:text-sm truncate group-hover:text-red-900 transition">${lesson.title}</p>
-                    <div class="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
-                        <span class="text-[9px] ${badgeStyle} px-1.5 py-0.5 rounded font-bold">${badgeText}</span>
-                        <span class="text-[9px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded font-medium"><i class="fa-regular fa-clock mr-1"></i>${timeCreated}</span>
-                        ${docHtml}
-                        ${hwHtml}
-                    </div>
-                </div>
-            </div>
-            ${actionBtns}
-        </div>
-    `;
+    const spanBadge = document.createElement("span");
+    spanBadge.className = `text-[9px] ${badgeClass} px-1.5 py-0.5 rounded font-bold`;
+    spanBadge.textContent = badgeText;
+
+    const timeCreated = formatTimestamp(lesson.createdAt);
+    const spanTime = document.createElement("span");
+    spanTime.className = "text-[9px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded font-medium";
+    spanTime.innerHTML = `<i class="fa-regular fa-clock mr-1"></i>${escapeHTML(timeCreated)}`;
+
+    metaDiv.appendChild(spanBadge);
+    metaDiv.appendChild(spanTime);
+
+    const finalDocUrl = lesson.docFileUrl || lesson.docLink || lesson.docUrl;
+    if (finalDocUrl && isSafeUrl(finalDocUrl)) {
+        const aDoc = document.createElement("a");
+        aDoc.href = finalDocUrl;
+        aDoc.target = "_blank";
+        aDoc.className = "btn-bouncy text-[10px] bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200 font-bold";
+        aDoc.innerHTML = '<i class="fa-solid fa-file-pdf mr-1"></i> Tài liệu';
+        aDoc.addEventListener("click", (e) => e.stopPropagation());
+        metaDiv.appendChild(aDoc);
+    }
+
+    const finalHwUrl = lesson.hwFileUrl || lesson.answerLink;
+    if (finalHwUrl && isSafeUrl(finalHwUrl)) {
+        const aHw = document.createElement("a");
+        aHw.href = finalHwUrl;
+        aHw.target = "_blank";
+        aHw.className = "btn-bouncy text-[10px] bg-stone-100 text-stone-800 px-2 py-0.5 rounded-md border border-stone-200 font-bold";
+        aHw.innerHTML = '<i class="fa-solid fa-pen-to-square mr-1"></i> Bài tập';
+        aHw.addEventListener("click", (e) => e.stopPropagation());
+        metaDiv.appendChild(aHw);
+    }
+
+    titleDiv.appendChild(pTitle);
+    titleDiv.appendChild(metaDiv);
+    infoDiv.appendChild(titleDiv);
+    leftDiv.appendChild(badgeNum);
+    leftDiv.appendChild(infoDiv);
+    item.appendChild(leftDiv);
+
+    if (role === "admin") {
+        const actionDiv = document.createElement("div");
+        actionDiv.className = "flex items-center space-x-1 ml-2";
+
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "btn-bouncy text-amber-700 hover:bg-amber-50 p-1.5 rounded-lg transition text-xs";
+        btnEdit.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+        btnEdit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            editLesson(lesson.id, lesson.title || '', lesson.class || '', lesson.chapter || '');
+        });
+
+        const btnDel = document.createElement("button");
+        btnDel.className = "btn-bouncy text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition text-xs";
+        btnDel.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        btnDel.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteLesson(lesson.id);
+        });
+
+        actionDiv.appendChild(btnEdit);
+        actionDiv.appendChild(btnDel);
+        item.appendChild(actionDiv);
+    }
+
+    return item;
 }
 
 window.playVideo = function(url) {
@@ -532,7 +608,6 @@ window.playVideo = function(url) {
     const role = localStorage.getItem("userRole");
     const hasAccess = localStorage.getItem("hasVideoAccess") === "true";
 
-    // Kiểm tra quyền hạn của tài khoản
     if (role !== "admin" && !hasAccess) {
         container.innerHTML = `
             <div class="text-center p-6 flex flex-col items-center justify-center h-full bg-stone-900 text-white rounded-2xl border border-red-900/30">
@@ -561,7 +636,6 @@ window.playVideo = function(url) {
         return;
     }
 
-    // Tự động nhận diện nhúng Youtube hoặc Video thông thường
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
         let embedUrl = url;
         if (url.includes("watch?v=")) {
@@ -569,9 +643,9 @@ window.playVideo = function(url) {
         } else if (url.includes("youtu.be/")) {
             embedUrl = url.replace("youtu.be/", "youtube.com/embed/");
         }
-        container.innerHTML = `<iframe class="w-full h-full rounded-2xl" src="${embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        container.innerHTML = `<iframe class="w-full h-full rounded-2xl" src="${escapeHTML(embedUrl)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
     } else {
-        container.innerHTML = `<video controls autoplay class="w-full h-full object-contain bg-black rounded-2xl"><source src="${url}" type="video/mp4">Trình duyệt không hỗ trợ xem video trực tiếp.</video>`;
+        container.innerHTML = `<video controls autoplay class="w-full h-full object-contain bg-black rounded-2xl"><source src="${escapeHTML(url)}" type="video/mp4">Trình duyệt không hỗ trợ xem video trực tiếp.</video>`;
     }
 };
 
@@ -633,7 +707,6 @@ window.grantVideoAccess = async function() {
     }
 };
 
-// ĐÃ SỬA LỖI: Lọc bỏ tài khoản Admin, hiện Mật Khẩu & Nút Thu Hồi Quyền
 function loadAccountsList() {
     const container = document.getElementById("accountListContainer");
     if (!container) return;
@@ -649,8 +722,6 @@ function loadAccountsList() {
 
         snapshot.forEach((doc) => {
             const acc = doc.data();
-
-            // LỌC KHÔNG HIỂN THỊ TÀI KHOẢN ADMIN VÀO DANH SÁCH TÀI KHOẢN CẤP QUYỀN
             if (acc.role === "admin") return;
 
             studentCount++;
@@ -661,29 +732,57 @@ function loadAccountsList() {
                 ? '<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check"></i> Đã cấp quyền</span>' 
                 : '<span class="text-amber-800 font-bold"><i class="fa-solid fa-lock"></i> Chưa cấp quyền</span>';
 
-            const toggleAccessBtn = acc.hasVideoAccess
-                ? `<button onclick="toggleVideoAccess('${doc.id}', false)" title="Thu hồi quyền" class="btn-bouncy text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 transition"><i class="fa-solid fa-user-slash mr-1"></i>Thu hồi</button>`
-                : `<button onclick="toggleVideoAccess('${doc.id}', true)" title="Cấp quyền xem" class="btn-bouncy text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-1 rounded-lg border border-emerald-300 transition"><i class="fa-solid fa-key mr-1"></i>Cấp quyền</button>`;
-
             const item = document.createElement("div");
             item.className = "flex flex-col p-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs gap-1.5";
-            item.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-1.5">
-                        <span class="status-dot ${dotClass}"></span>
-                        <span class="font-extrabold text-stone-800 text-xs">${acc.name}</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        ${toggleAccessBtn}
-                        <button onclick="deleteAccount('${doc.id}')" title="Xóa tài khoản" class="btn-bouncy text-rose-600 hover:bg-rose-100 p-1 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between text-[11px] text-stone-600 bg-white p-1.5 rounded-lg border border-stone-200/60">
-                    <span>User: <b class="text-stone-800">${acc.username}</b></span>
-                    <span class="text-stone-400 italic">Mật khẩu được Firebase bảo mật, admin không xem được</span>
-                </div>
-                <div class="text-[10px]">Trạng thái: ${accessStatus}</div>
-            `;
+            
+            const topRow = document.createElement("div");
+            topRow.className = "flex items-center justify-between";
+            
+            const leftInfo = document.createElement("div");
+            leftInfo.className = "flex items-center space-x-1.5";
+            
+            const spanDot = document.createElement("span");
+            spanDot.className = `status-dot ${dotClass}`;
+            
+            const spanName = document.createElement("span");
+            spanName.className = "font-extrabold text-stone-800 text-xs";
+            spanName.textContent = acc.name || '';
+            
+            leftInfo.appendChild(spanDot);
+            leftInfo.appendChild(spanName);
+            
+            const rightBtns = document.createElement("div");
+            rightBtns.className = "flex items-center space-x-1";
+            
+            const toggleBtn = document.createElement("button");
+            toggleBtn.className = acc.hasVideoAccess 
+                ? "btn-bouncy text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 transition" 
+                : "btn-bouncy text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-1 rounded-lg border border-emerald-300 transition";
+            toggleBtn.innerHTML = acc.hasVideoAccess ? '<i class="fa-solid fa-user-slash mr-1"></i>Thu hồi' : '<i class="fa-solid fa-key mr-1"></i>Cấp quyền';
+            toggleBtn.addEventListener("click", () => toggleVideoAccess(doc.id, !acc.hasVideoAccess));
+            
+            const delAccBtn = document.createElement("button");
+            delAccBtn.className = "btn-bouncy text-rose-600 hover:bg-rose-100 p-1 rounded-lg transition";
+            delAccBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+            delAccBtn.addEventListener("click", () => deleteAccount(doc.id));
+            
+            rightBtns.appendChild(toggleBtn);
+            rightBtns.appendChild(delAccBtn);
+            
+            topRow.appendChild(leftInfo);
+            topRow.appendChild(rightBtns);
+
+            const midRow = document.createElement("div");
+            midRow.className = "flex items-center justify-between text-[11px] text-stone-600 bg-white p-1.5 rounded-lg border border-stone-200/60";
+            midRow.innerHTML = `<span>User: <b class="text-stone-800">${escapeHTML(acc.username)}</b></span><span class="text-stone-400 italic">Mật khẩu được bảo mật</span>`;
+
+            const botRow = document.createElement("div");
+            botRow.className = "text-[10px]";
+            botRow.innerHTML = `Trạng thái: ${accessStatus}`;
+
+            item.appendChild(topRow);
+            item.appendChild(midRow);
+            item.appendChild(botRow);
             container.appendChild(item);
         });
 
@@ -693,7 +792,6 @@ function loadAccountsList() {
     });
 }
 
-// BỔ SUNG: Thu hồi hoặc cấp quyền nhanh
 window.toggleVideoAccess = async function(docId, enable) {
     try {
         await db.collection("students").doc(docId).update({ hasVideoAccess: enable });
@@ -728,6 +826,7 @@ if (docManagerForm) {
         const btnUpload = document.getElementById("btnUploadDocManager");
 
         if (!title) return;
+        if (!validateLinksOrAlert({ "Link Tài liệu": docLink, "Link Đáp án": answerLink })) return;
         btnUpload.disabled = true;
 
         try {
@@ -779,44 +878,66 @@ function loadDocuments() {
             const data = doc.data();
             const id = doc.id;
             
-            let adminBtns = "";
-            if (role === "admin") {
-                const safeTitle = data.title.replace(/'/g, "\\'");
-                adminBtns = `
-                    <div class="mt-3 pt-2 border-t border-stone-100 flex space-x-3">
-                        <button onclick="editDoc('${id}', '${safeTitle}', '${data.category}')" class="btn-bouncy text-xs text-amber-800 font-bold hover:underline"><i class="fa-solid fa-pen"></i> Sửa</button>
-                        <button onclick="deleteDoc('${id}')" class="btn-bouncy text-xs text-rose-600 font-bold hover:underline"><i class="fa-solid fa-trash"></i> Xóa</button>
-                    </div>
-                `;
-            }
-
-            const finalDocUrl = data.docFileUrl || data.docLink || data.fileUrl;
-            const finalAnswerUrl = data.answerFileUrl || data.answerLink;
-
-            let linksHtml = '';
-            if (finalDocUrl) {
-                linksHtml += `<a href="${finalDocUrl}" target="_blank" class="btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-amber-50 text-amber-900 px-3 py-2 rounded-xl hover:bg-amber-100 transition mb-2 border border-amber-200">
-                    <i class="fa-solid fa-download mr-1.5"></i> Tải Tài Liệu / Đề Bài
-                </a>`;
-            }
-            if (finalAnswerUrl) {
-                linksHtml += `<a href="${finalAnswerUrl}" target="_blank" class="btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-rose-50 text-rose-900 px-3 py-2 rounded-xl hover:bg-rose-100 transition border border-rose-200">
-                    <i class="fa-solid fa-check-double mr-1.5"></i> Tải Đáp Án Chi Tiết
-                </a>`;
-            }
-
             const item = document.createElement("div");
             item.className = "p-4 rounded-2xl flex flex-col justify-between border border-stone-200/80 bg-white shadow-xs";
-            item.innerHTML = `
-                <div class="mb-3">
-                    <span class="px-2.5 py-0.5 ${bgColors[data.category] || 'bg-stone-100 text-stone-700'} text-[10px] rounded-md font-extrabold mb-2 inline-block">${data.category}</span>
-                    <p class="font-bold text-stone-800 text-xs sm:text-sm leading-snug">${data.title}</p>
-                </div>
-                <div>
-                    ${linksHtml}
-                    ${adminBtns}
-                </div>
-            `;
+
+            const topDiv = document.createElement("div");
+            topDiv.className = "mb-3";
+            
+            const catSpan = document.createElement("span");
+            catSpan.className = `px-2.5 py-0.5 ${bgColors[data.category] || 'bg-stone-100 text-stone-700'} text-[10px] rounded-md font-extrabold mb-2 inline-block`;
+            catSpan.textContent = data.category || '';
+            
+            const titleP = document.createElement("p");
+            titleP.className = "font-bold text-stone-800 text-xs sm:text-sm leading-snug";
+            titleP.textContent = data.title || '';
+            
+            topDiv.appendChild(catSpan);
+            topDiv.appendChild(titleP);
+
+            const botDiv = document.createElement("div");
+            
+            const finalDocUrl = data.docFileUrl || data.docLink || data.fileUrl;
+            if (finalDocUrl && isSafeUrl(finalDocUrl)) {
+                const aDoc = document.createElement("a");
+                aDoc.href = finalDocUrl;
+                aDoc.target = "_blank";
+                aDoc.className = "btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-amber-50 text-amber-900 px-3 py-2 rounded-xl hover:bg-amber-100 transition mb-2 border border-amber-200";
+                aDoc.innerHTML = '<i class="fa-solid fa-download mr-1.5"></i> Tải Tài Liệu / Đề Bài';
+                botDiv.appendChild(aDoc);
+            }
+
+            const finalAnswerUrl = data.answerFileUrl || data.answerLink;
+            if (finalAnswerUrl && isSafeUrl(finalAnswerUrl)) {
+                const aAns = document.createElement("a");
+                aAns.href = finalAnswerUrl;
+                aAns.target = "_blank";
+                aAns.className = "btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-rose-50 text-rose-900 px-3 py-2 rounded-xl hover:bg-rose-100 transition border border-rose-200";
+                aAns.innerHTML = '<i class="fa-solid fa-check-double mr-1.5"></i> Tải Đáp Án Chi Tiết';
+                botDiv.appendChild(aAns);
+            }
+
+            if (role === "admin") {
+                const adminDiv = document.createElement("div");
+                adminDiv.className = "mt-3 pt-2 border-t border-stone-100 flex space-x-3";
+                
+                const btnEdit = document.createElement("button");
+                btnEdit.className = "btn-bouncy text-xs text-amber-800 font-bold hover:underline";
+                btnEdit.innerHTML = '<i class="fa-solid fa-pen"></i> Sửa';
+                btnEdit.addEventListener("click", () => editDoc(id, data.title || '', data.category || ''));
+
+                const btnDel = document.createElement("button");
+                btnDel.className = "btn-bouncy text-xs text-rose-600 font-bold hover:underline";
+                btnDel.innerHTML = '<i class="fa-solid fa-trash"></i> Xóa';
+                btnDel.addEventListener("click", () => deleteDoc(id));
+
+                adminDiv.appendChild(btnEdit);
+                adminDiv.appendChild(btnDel);
+                botDiv.appendChild(adminDiv);
+            }
+
+            item.appendChild(topDiv);
+            item.appendChild(botDiv);
             list.appendChild(item);
         });
     });
@@ -864,6 +985,7 @@ if (studentDocForm) {
         const btnUpload = document.getElementById("btnUploadStudentDoc");
 
         if (!title) return;
+        if (!validateLinksOrAlert({ "Link Tài liệu": docLink })) return;
         btnUpload.disabled = true;
 
         try {
@@ -913,37 +1035,61 @@ function loadStudentDocuments() {
             const data = doc.data();
             const id = doc.id;
             
-            let adminBtns = "";
-            if (role === "admin") {
-                const safeTitle = data.title.replace(/'/g, "\\'");
-                adminBtns = `
-                    <div class="mt-3 pt-2 border-t border-stone-100 flex space-x-3">
-                        <button onclick="editStudentDoc('${id}', '${safeTitle}', '${data.category}')" class="btn-bouncy text-xs text-amber-800 font-bold hover:underline"><i class="fa-solid fa-pen"></i> Sửa</button>
-                        <button onclick="deleteStudentDoc('${id}')" class="btn-bouncy text-xs text-rose-600 font-bold hover:underline"><i class="fa-solid fa-trash"></i> Xóa</button>
-                    </div>
-                `;
-            }
-
-            const finalUrl = data.docFileUrl || data.docLink;
-
-            let downloadBtnHtml = finalUrl 
-                ? `<a href="${finalUrl}" target="_blank" class="btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-blue-50 text-blue-900 px-3 py-2 rounded-xl hover:bg-blue-100 transition border border-blue-200">
-                    <i class="fa-solid fa-download mr-1.5"></i> Xem / Tải Tài Liệu Sinh Viên
-                   </a>`
-                : `<span class="text-xs text-stone-400">Không có tệp đính kèm</span>`;
-
             const item = document.createElement("div");
             item.className = "p-4 rounded-2xl flex flex-col justify-between border border-stone-200/80 bg-white shadow-xs";
-            item.innerHTML = `
-                <div class="mb-3">
-                    <span class="px-2.5 py-0.5 ${bgColors[data.category] || 'bg-stone-100 text-stone-700'} text-[10px] rounded-md font-extrabold mb-2 inline-block">${data.category}</span>
-                    <p class="font-bold text-stone-800 text-xs sm:text-sm leading-snug">${data.title}</p>
-                </div>
-                <div>
-                    ${downloadBtnHtml}
-                    ${adminBtns}
-                </div>
-            `;
+
+            const topDiv = document.createElement("div");
+            topDiv.className = "mb-3";
+            
+            const catSpan = document.createElement("span");
+            catSpan.className = `px-2.5 py-0.5 ${bgColors[data.category] || 'bg-stone-100 text-stone-700'} text-[10px] rounded-md font-extrabold mb-2 inline-block`;
+            catSpan.textContent = data.category || '';
+            
+            const titleP = document.createElement("p");
+            titleP.className = "font-bold text-stone-800 text-xs sm:text-sm leading-snug";
+            titleP.textContent = data.title || '';
+            
+            topDiv.appendChild(catSpan);
+            topDiv.appendChild(titleP);
+
+            const botDiv = document.createElement("div");
+            const finalUrl = data.docFileUrl || data.docLink;
+
+            if (finalUrl && isSafeUrl(finalUrl)) {
+                const aLink = document.createElement("a");
+                aLink.href = finalUrl;
+                aLink.target = "_blank";
+                aLink.className = "btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-blue-50 text-blue-900 px-3 py-2 rounded-xl hover:bg-blue-100 transition border border-blue-200";
+                aLink.innerHTML = '<i class="fa-solid fa-download mr-1.5"></i> Xem / Tải Tài Liệu Sinh Viên';
+                botDiv.appendChild(aLink);
+            } else {
+                const spanNone = document.createElement("span");
+                spanNone.className = "text-xs text-stone-400";
+                spanNone.textContent = "Không có tệp đính kèm";
+                botDiv.appendChild(spanNone);
+            }
+
+            if (role === "admin") {
+                const adminDiv = document.createElement("div");
+                adminDiv.className = "mt-3 pt-2 border-t border-stone-100 flex space-x-3";
+                
+                const btnEdit = document.createElement("button");
+                btnEdit.className = "btn-bouncy text-xs text-amber-800 font-bold hover:underline";
+                btnEdit.innerHTML = '<i class="fa-solid fa-pen"></i> Sửa';
+                btnEdit.addEventListener("click", () => editStudentDoc(id, data.title || '', data.category || ''));
+
+                const btnDel = document.createElement("button");
+                btnDel.className = "btn-bouncy text-xs text-rose-600 font-bold hover:underline";
+                btnDel.innerHTML = '<i class="fa-solid fa-trash"></i> Xóa';
+                btnDel.addEventListener("click", () => deleteStudentDoc(id));
+
+                adminDiv.appendChild(btnEdit);
+                adminDiv.appendChild(btnDel);
+                botDiv.appendChild(adminDiv);
+            }
+
+            item.appendChild(topDiv);
+            item.appendChild(botDiv);
             list.appendChild(item);
         });
     });
@@ -992,6 +1138,7 @@ if (communityUploadForm) {
             showCustomAlert("Vui lòng điền đầy đủ tiêu đề và môn học!");
             return;
         }
+        if (!validateLinksOrAlert({ "Link tài liệu": link })) return;
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang đăng lên...';
@@ -1046,32 +1193,57 @@ function loadCommunityDocuments() {
             const id = doc.id;
             const finalUrl = data.fileUrl;
 
-            let deleteBtn = "";
-            if (currentRole === "admin" || (currentUserId && currentUserId === data.uploaderId)) {
-                deleteBtn = `<button onclick="deleteCommunityDoc('${id}')" class="btn-bouncy text-xs text-rose-600 font-bold hover:underline mt-2 inline-block"><i class="fa-solid fa-trash mr-1"></i> Xóa chia sẻ</button>`;
-            }
-
-            let downloadBtn = finalUrl 
-                ? `<a href="${finalUrl}" target="_blank" class="btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-emerald-50 text-emerald-900 px-3 py-2 rounded-xl hover:bg-emerald-100 transition border border-emerald-200">
-                    <i class="fa-solid fa-download mr-1.5"></i> Tải Tài Liệu Đóng Góp
-                   </a>`
-                : `<span class="text-xs text-stone-400">Không có liên kết tải</span>`;
-
             const item = document.createElement("div");
             item.className = "p-4 rounded-2xl flex flex-col justify-between border border-stone-200/80 bg-white shadow-xs";
-            item.innerHTML = `
-                <div class="mb-3">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] rounded-md font-extrabold inline-block">${data.subject}</span>
-                    </div>
-                    <p class="font-bold text-stone-800 text-xs sm:text-sm leading-snug">${data.title}</p>
-                    <p class="text-[10px] text-stone-400 mt-2"><i class="fa-solid fa-user text-stone-400 mr-1"></i>Người đăng: <strong class="text-stone-600">${data.uploaderName || 'Thành viên'}</strong></p>
-                </div>
-                <div>
-                    ${downloadBtn}
-                    ${deleteBtn}
-                </div>
-            `;
+
+            const topDiv = document.createElement("div");
+            topDiv.className = "mb-3";
+            
+            const subWrapper = document.createElement("div");
+            subWrapper.className = "flex justify-between items-center mb-1";
+            
+            const subSpan = document.createElement("span");
+            subSpan.className = "px-2.5 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] rounded-md font-extrabold inline-block";
+            subSpan.textContent = data.subject || '';
+            subWrapper.appendChild(subSpan);
+
+            const titleP = document.createElement("p");
+            titleP.className = "font-bold text-stone-800 text-xs sm:text-sm leading-snug";
+            titleP.textContent = data.title || '';
+
+            const uploaderP = document.createElement("p");
+            uploaderP.className = "text-[10px] text-stone-400 mt-2";
+            uploaderP.innerHTML = `<i class="fa-solid fa-user text-stone-400 mr-1"></i>Người đăng: <strong class="text-stone-600">${escapeHTML(data.uploaderName || 'Thành viên')}</strong>`;
+
+            topDiv.appendChild(subWrapper);
+            topDiv.appendChild(titleP);
+            topDiv.appendChild(uploaderP);
+
+            const botDiv = document.createElement("div");
+            if (finalUrl && isSafeUrl(finalUrl)) {
+                const aLink = document.createElement("a");
+                aLink.href = finalUrl;
+                aLink.target = "_blank";
+                aLink.className = "btn-bouncy flex items-center justify-center w-full text-xs font-bold bg-emerald-50 text-emerald-900 px-3 py-2 rounded-xl hover:bg-emerald-100 transition border border-emerald-200";
+                aLink.innerHTML = '<i class="fa-solid fa-download mr-1.5"></i> Tải Tài Liệu Đóng Góp';
+                botDiv.appendChild(aLink);
+            } else {
+                const spanNone = document.createElement("span");
+                spanNone.className = "text-xs text-stone-400";
+                spanNone.textContent = "Không có liên kết tải";
+                botDiv.appendChild(spanNone);
+            }
+
+            if (currentRole === "admin" || (currentUserId && currentUserId === data.uploaderId)) {
+                const delBtn = document.createElement("button");
+                delBtn.className = "btn-bouncy text-xs text-rose-600 font-bold hover:underline mt-2 inline-block";
+                delBtn.innerHTML = '<i class="fa-solid fa-trash mr-1"></i> Xóa chia sẻ';
+                delBtn.addEventListener("click", () => deleteCommunityDoc(id));
+                botDiv.appendChild(delBtn);
+            }
+
+            item.appendChild(topDiv);
+            item.appendChild(botDiv);
             list.appendChild(item);
         });
     });
