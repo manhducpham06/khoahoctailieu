@@ -85,3 +85,85 @@ input:focus, select:focus {
 }
 .status-online { background-color: #10b981; box-shadow: 0 0 6px #10b981; }
 .status-offline { background-color: #94a3b8; }
+/* ============================================================
+   CUSTOM DROPDOWN (thay cho <select> gốc)
+   ============================================================ */
+.dropdown-trigger { cursor: pointer; user-select: none; }
+.dropdown-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 60;
+    background: #ffffff;
+    border: 1px solid #e7ded9;
+    border-radius: 0.9rem;
+    box-shadow: 0 14px 34px -8px rgba(139, 38, 18, 0.22);
+    min-width: 190px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 6px;
+}
+.dropdown-option {
+    padding: 8px 10px;
+    border-radius: 0.65rem;
+    font-size: 12px;
+    font-weight: 600;
+    color: #44352f;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+}
+.dropdown-option:hover { background: #fbeee9; }
+.dropdown-option.active { background: var(--primary); color: #fff; }
+
+/* ============================================================
+   CHẤT LƯỢNG / ĐỘ NÉT HIỂN THỊ VIDEO
+   ============================================================ */
+.video-el { transition: filter 0.25s ease; }
+.sharpen-off { filter: none; }
+.sharpen-medium { filter: contrast(1.12) saturate(1.1) brightness(1.02); }
+.sharpen-high { filter: contrast(1.24) saturate(1.18) brightness(1.03); }
+.sharpen-btn {
+    font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 0.6rem;
+    border: 1px solid #e7ded9; color: #57453d; background: #fff; cursor: pointer;
+    transition: all 0.15s ease;
+}
+.sharpen-btn:hover { background: #fbeee9; }
+.sharpen-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ============================================================
+   BỘ LỌC DANH MỤC TÀI LIỆU
+   ============================================================ */
+.doc-filter-btn { transition: all 0.15s ease; opacity: 0.75; }
+.doc-filter-btn:hover { opacity: 1; }
+.doc-filter-btn.active { opacity: 1; box-shadow: 0 0 0 2px rgba(139, 38, 18, 0.25) inset; }
+
+/* ============================================================
+   CHI TIẾT GẬP MỞ (Panel Quản Trị)
+   ============================================================ */
+details > summary { -webkit-tap-highlight-color: transparent; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] > summary { border-bottom: 1px solid #f1e4e0; }
+
+/* ============================================================
+   LOFI CHILL VIBE — điểm nhấn ấm áp, mềm mại hơn cho toàn trang
+   ============================================================ */
+body {
+    background-image:
+        radial-gradient(circle at 8% 12%, rgba(226, 177, 165, 0.35) 0%, transparent 45%),
+        radial-gradient(circle at 92% 85%, rgba(194, 123, 104, 0.25) 0%, transparent 40%),
+        var(--bg-gradient);
+}
+.bg-white {
+    box-shadow: 0 1px 2px rgba(139, 38, 18, 0.04);
+}
+#videoContainer {
+    box-shadow: 0 20px 45px -18px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+h1, h2, h3 { letter-spacing: -0.01em; }
+
+@keyframes floatSoft {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
+}
+.fa-circle-play { animation: floatSoft 3.5s ease-in-out infinite; }
