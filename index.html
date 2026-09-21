@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Khóa Học & Tài Liệu Trực Tuyến - EduVault</title>
+    <title>Hệ Thống Khóa Học & Tài Liệu Trực Tuyến</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Custom Style CSS -->
     <link rel="stylesheet" href="style.css">
-     <link rel="icon" href="meo.png" type="image/png">
+     <link rel="icon" href="cat.jpg" type="image/png">
     
     <!-- Firebase JS SDK (v8) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -95,7 +95,7 @@
                 <div class="flex items-center space-x-3">
                     <div class="bg-red-900 text-white p-2.5 rounded-xl shadow-md shadow-red-900/20"><i class="fa-solid fa-graduation-cap text-xl"></i></div>
                     <div>
-                        <h1 class="text-lg font-extrabold text-stone-800 tracking-tight leading-none">EduVault</h1>
+                        <h1 class="text-lg font-extrabold text-stone-800 tracking-tight leading-none">MeoGenZ</h1>
                         <span class="text-[10px] text-stone-400 font-medium">Hệ Thống Bài Giảng & Kho Tài Liệu Học Tập</span>
                     </div>
                 </div>
@@ -118,7 +118,7 @@
                     </button>
                     <button id="tabBtnDocs" onclick="switchTab('docs')" class="btn-bouncy py-3.5 px-3 border-b-2 font-semibold text-sm border-transparent text-stone-500 hover:text-stone-800 transition flex items-center space-x-2">
                         <i class="fa-solid fa-folder-open text-base"></i>
-                        <span>TÀI LIỆU CHUNG</span>
+                        <span>TÀI LIỆU THPT/HSA/TSA</span>
                     </button>
                     <button id="tabBtnStudentDocs" onclick="switchTab('studentDocs')" class="btn-bouncy py-3.5 px-3 border-b-2 font-semibold text-sm border-transparent text-stone-500 hover:text-stone-800 transition flex items-center space-x-2">
                         <i class="fa-solid fa-user-graduate text-base"></i>
@@ -126,49 +126,69 @@
                     </button>
                     <button id="tabBtnCommunityDocs" onclick="switchTab('communityDocs')" class="btn-bouncy py-3.5 px-3 border-b-2 font-semibold text-sm border-transparent text-stone-500 hover:text-stone-800 transition flex items-center space-x-2">
                         <i class="fa-solid fa-users-line text-base"></i>
-                        <span>TÀI LIỆU ĐÓNG GÓP CHUNG</span>
+                        <span>ĐÓNG GÓP TÀI LIỆU</span>
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- MAIN CONTENT -->
-        <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <main class="flex-1 w-full px-4 sm:px-6 lg:px-10 py-6">
             
             <!-- TAB 1: KHÓA HỌC VIDEO -->
-            <div id="tabContentCourses" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div id="videoContainer" class="aspect-video bg-stone-900 rounded-2xl overflow-hidden shadow-xl border border-stone-800 relative flex items-center justify-center">
-                        <div class="text-center text-stone-400 p-6">
-                            <i class="fa-solid fa-circle-play text-6xl mb-3 text-red-800 opacity-80"></i>
-                            <p class="font-semibold text-stone-300">Chọn một bài học ở danh sách bên dưới để bắt đầu xem</p>
+            <div id="tabContentCourses" class="space-y-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80">
+                    <div class="p-5 pb-3">
+                        <div id="videoContainer" class="aspect-video bg-stone-900 rounded-2xl overflow-hidden shadow-xl border border-stone-800 relative flex items-center justify-center">
+                            <div class="text-center text-stone-400 p-6">
+                                <i class="fa-solid fa-circle-play text-6xl mb-3 text-red-800 opacity-80"></i>
+                                <p class="font-semibold text-stone-300">Chọn một bài học ở danh sách bên dưới để bắt đầu xem</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-1.5 mt-2.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-stone-400 text-[10px] mr-0.5"></i>
+                            <span class="text-[10px] text-stone-400 font-semibold mr-1">Chất lượng hiển thị:</span>
+                            <button type="button" class="sharpen-btn active" data-level="off" onclick="setSharpenLevel('off', this)">Gốc</button>
+                            <button type="button" class="sharpen-btn" data-level="medium" onclick="setSharpenLevel('medium', this)">Nét vừa</button>
+                            <button type="button" class="sharpen-btn" data-level="high" onclick="setSharpenLevel('high', this)">Nét cao</button>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                    <div class="border-t border-stone-100 p-5 pt-4">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                             <h3 class="text-base font-extrabold text-stone-800 flex items-center whitespace-nowrap">
                                 <i class="fa-solid fa-list-ul text-red-900 mr-2"></i> Danh Sách Bài Học
                             </h3>
                             <div class="flex space-x-2 w-full sm:w-auto">
-                                <select id="filterClass" onchange="loadLessons()" class="px-3 py-1.5 border border-stone-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-red-900 bg-orange-50 text-red-950 shadow-2xs">
-                                    <option value="">Tất cả khối học</option>
-                                    <option value="tong-on">Phần Tổng Ôn</option>
-                                    <option value="10">Lớp 10</option>
-                                    <option value="11">Lớp 11</option>
-                                    <option value="12">Lớp 12</option>
-                                </select>
-                                <select id="filterChapter" onchange="loadLessons()" class="px-3 py-1.5 border border-stone-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-red-900 bg-white text-stone-700 shadow-2xs min-w-[140px]">
-                                    <option value="">Tất cả chương</option>
-                                </select>
+                                <div class="relative">
+                                    <button type="button" id="filterClassBtn" class="dropdown-trigger px-3 py-1.5 border border-stone-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-red-900 bg-orange-50 text-red-950 shadow-2xs flex items-center gap-1.5 whitespace-nowrap">
+                                        <span id="filterClassLabel">Tất Cả Bài Giảng</span>
+                                        <i class="fa-solid fa-chevron-down text-[9px] opacity-60"></i>
+                                    </button>
+                                    <div id="filterClassPanel" class="dropdown-panel hidden"></div>
+                                </div>
+                                <div class="relative">
+                                    <button type="button" id="filterChapterBtn" class="dropdown-trigger px-3 py-1.5 border border-stone-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-red-900 bg-white text-stone-700 shadow-2xs min-w-[140px] flex items-center justify-between gap-1.5">
+                                        <span id="filterChapterLabel">Tất cả chương</span>
+                                        <i class="fa-solid fa-chevron-down text-[9px] opacity-60"></i>
+                                    </button>
+                                    <div id="filterChapterPanel" class="dropdown-panel hidden"></div>
+                                </div>
                             </div>
                         </div>
-                        <div id="lessonList" class="space-y-3 max-h-[500px] overflow-y-auto pr-1"></div>
+                        <div id="lessonList" class="space-y-3"></div>
                     </div>
                 </div>
 
-                <div id="adminPanelsCourses" class="hidden space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                <div id="adminPanelsCourses" class="hidden">
+                    <details class="bg-white rounded-2xl shadow-sm border border-stone-200/80 group overflow-hidden">
+                        <summary class="cursor-pointer select-none list-none p-5 font-bold text-stone-800 flex items-center justify-between">
+                            <span class="flex items-center"><i class="fa-solid fa-toolbox text-red-900 mr-2"></i> Quản Trị: Bài Giảng &amp; Tài Khoản</span>
+                            <i class="fa-solid fa-chevron-down text-stone-400 text-xs transition group-open:rotate-180"></i>
+                        </summary>
+                        <div class="px-5 pb-5 grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-stone-100 pt-5">
+
+                    <div class="bg-stone-50 rounded-2xl border border-stone-200/80 p-5">
                         <h3 id="formTitle" class="text-base font-bold text-stone-800 mb-4 flex items-center">
                             <i class="fa-solid fa-cloud-arrow-up text-red-900 mr-2"></i> Tải Lên Bài Mới
                         </h3>
@@ -182,6 +202,7 @@
                                         <option value="10">Lớp 10</option>
                                         <option value="11">Lớp 11</option>
                                         <option value="12">Lớp 12</option>
+                                        <option value="casio-hsa">Casio HSA</option>
                                     </select>
                                 </div>
                                 <div>
@@ -205,11 +226,21 @@
                                 <label class="block text-xs font-bold text-amber-900">Tài liệu đính kèm (PDF/Doc)</label>
                                 <input type="file" id="docFile" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
                                 <input type="url" id="lessonDocLink" placeholder="Hoặc dán URL tài liệu..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-700 bg-white">
+                                <div class="flex items-center gap-2 pt-1">
+                                    <label class="text-[11px] font-semibold text-amber-900 whitespace-nowrap">Giới hạn lượt tải:</label>
+                                    <input type="number" id="lessonMaxDownloads" min="0" value="0" class="w-20 px-2 py-1 border border-amber-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-700 bg-white">
+                                    <span class="text-[10px] text-amber-700">(0 = không giới hạn)</span>
+                                </div>
                             </div>
                             <div class="space-y-2 bg-stone-100/80 p-3 rounded-xl border border-stone-200">
                                 <label class="block text-xs font-bold text-stone-800">Bài tập về nhà / Đáp án</label>
                                 <input type="file" id="hwFile" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
                                 <input type="url" id="lessonAnswerLink" placeholder="Hoặc dán URL bài tập..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-stone-600 bg-white">
+                            </div>
+                            <div class="space-y-2 bg-rose-50/70 p-3 rounded-xl border border-rose-100">
+                                <label class="block text-xs font-bold text-rose-900">Video Chữa Bài (Tệp MP4 hoặc URL Link)</label>
+                                <input type="file" id="answerVideoFile" accept="video/*" class="w-full text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-rose-100 file:text-rose-900 file:font-semibold">
+                                <input type="url" id="lessonAnswerVideoLink" placeholder="Hoặc dán URL video chữa bài..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-rose-700 bg-white">
                             </div>
                             <div class="flex space-x-2 pt-1">
                                 <button type="submit" id="btnUploadLesson" class="btn-bouncy flex-1 bg-red-900 hover:bg-red-950 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-red-900/20">
@@ -220,9 +251,9 @@
                         </form>
                     </div>
 
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                    <div class="bg-stone-50 rounded-2xl border border-stone-200/80 p-5">
                         <h3 class="text-base font-bold text-stone-800 mb-3 flex items-center">
-                            <i class="fa-solid fa-user-shield text-red-900 mr-2"></i> Cấp Quyền Xem Video
+                            <i class="fa-solid fa-users-gear text-red-900 mr-2"></i> Quản Lý Tài Khoản
                         </h3>
                         <div class="space-y-2">
                             <input type="text" id="grantUsername" placeholder="Nhập username học sinh..." class="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
@@ -230,39 +261,49 @@
                                 <i class="fa-solid fa-check-circle mr-1"></i> Mở Khóa Tài Khoản
                             </button>
                         </div>
-                        <div class="mt-5 border-t border-stone-100 pt-3">
+                        <div class="mt-5 border-t border-stone-200 pt-3">
                             <h4 class="font-bold text-stone-700 text-xs mb-2 flex items-center">
                                 <i class="fa-solid fa-users text-red-900 mr-1"></i> Danh sách học sinh
                             </h4>
-                            <div id="accountListContainer" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+                            <div id="accountListContainer" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
                         </div>
                     </div>
+
+                        </div>
+                    </details>
                 </div>
             </div>
 
             <!-- TAB 2: KHO TÀI LIỆU CHUNG -->
-            <div id="tabContentDocs" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
-                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
-                            <h3 class="text-base font-extrabold text-stone-800 flex items-center">
-                                <i class="fa-solid fa-folder-tree text-red-900 mr-2"></i> Kho Tài Liệu Phân Loại
-                            </h3>
-                            <div class="flex space-x-1.5">
-                                <span class="px-2.5 py-1 bg-amber-100 text-amber-900 text-[11px] rounded-lg font-bold">THPT</span>
-                                <span class="px-2.5 py-1 bg-orange-100 text-orange-900 text-[11px] rounded-lg font-bold">ĐGNL</span>
-                                <span class="px-2.5 py-1 bg-rose-100 text-rose-900 text-[11px] rounded-lg font-bold">ĐGTD</span>
-                            </div>
-                        </div>
-                        <div id="documentList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <div id="tabContentDocs" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-base font-extrabold text-stone-800 flex items-center">
+                            <i class="fa-solid fa-folder-tree text-red-900 mr-2"></i> Kho Tài Liệu Phân Loại
+                        </h3>
                     </div>
+                    <div class="flex flex-col sm:flex-row gap-2.5 mb-4">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs"></i>
+                            <input type="text" id="docSearchInput" oninput="loadDocuments()" placeholder="Tìm theo tên tài liệu..." class="w-full pl-8 pr-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                        </div>
+                        <div class="flex flex-wrap gap-1.5" id="docCategoryFilter">
+                            <button type="button" data-cat="" onclick="setDocCategoryFilter(this,'')" class="doc-filter-btn active px-2.5 py-1.5 bg-stone-800 text-white text-[11px] rounded-lg font-bold">Tất Cả</button>
+                            <button type="button" data-cat="THPT" onclick="setDocCategoryFilter(this,'THPT')" class="doc-filter-btn px-2.5 py-1.5 bg-amber-100 text-amber-900 text-[11px] rounded-lg font-bold">THPT</button>
+                            <button type="button" data-cat="DGNL" onclick="setDocCategoryFilter(this,'DGNL')" class="doc-filter-btn px-2.5 py-1.5 bg-orange-100 text-orange-900 text-[11px] rounded-lg font-bold">ĐGNL</button>
+                            <button type="button" data-cat="DGTD" onclick="setDocCategoryFilter(this,'DGTD')" class="doc-filter-btn px-2.5 py-1.5 bg-rose-100 text-rose-900 text-[11px] rounded-lg font-bold">ĐGTD</button>
+                        </div>
+                    </div>
+                    <div id="documentList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
                 </div>
 
-                <div id="adminPanelsDocs" class="hidden space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
-                        <h3 id="formDocTitle" class="text-base font-bold text-stone-800 mb-4 flex items-center">
-                            <i class="fa-solid fa-file-arrow-up text-red-900 mr-2"></i> Đăng Tài Liệu Mới
-                        </h3>
+                <div id="adminPanelsDocs" class="hidden">
+                    <details class="bg-white rounded-2xl shadow-sm border border-stone-200/80 group overflow-hidden">
+                        <summary class="cursor-pointer select-none list-none p-5 font-bold text-stone-800 flex items-center justify-between">
+                            <span id="formDocTitle" class="flex items-center"><i class="fa-solid fa-file-arrow-up text-red-900 mr-2"></i> Đăng Tài Liệu Mới</span>
+                            <i class="fa-solid fa-chevron-down text-stone-400 text-xs transition group-open:rotate-180"></i>
+                        </summary>
+                        <div class="px-5 pb-5 border-t border-stone-100 pt-5 max-w-xl">
                         <form id="docManagerForm" class="space-y-4">
                             <input type="hidden" id="editingDocId">
                             <div>
@@ -294,33 +335,39 @@
                                 <button type="button" id="btnCancelEditDoc" onclick="resetDocForm()" class="btn-bouncy hidden bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-2 px-3 rounded-xl text-xs transition">Hủy</button>
                             </div>
                         </form>
-                    </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
             <!-- TAB 3: TÀI LIỆU SINH VIÊN -->
-            <div id="tabContentStudentDocs" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
-                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
-                            <h3 class="text-base font-extrabold text-stone-800 flex items-center">
-                                <i class="fa-solid fa-user-graduate text-red-900 mr-2"></i> Kho Tài Liệu Sinh Viên & Đại Học
-                            </h3>
-                            <div class="flex space-x-1.5">
-                                <span class="px-2.5 py-1 bg-blue-100 text-blue-900 text-[11px] rounded-lg font-bold">Giáo Trình</span>
-                                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[11px] rounded-lg font-bold">Đề Thi HK</span>
-                                <span class="px-2.5 py-1 bg-purple-100 text-purple-900 text-[11px] rounded-lg font-bold">Đồ Án</span>
-                            </div>
+            <div id="tabContentStudentDocs" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                    <h3 class="text-base font-extrabold text-stone-800 flex items-center mb-4">
+                        <i class="fa-solid fa-user-graduate text-red-900 mr-2"></i> Kho Tài Liệu Sinh Viên & Đại Học
+                    </h3>
+                    <div class="flex flex-col sm:flex-row gap-2.5 mb-4">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs"></i>
+                            <input type="text" id="studentDocSearchInput" oninput="loadStudentDocuments()" placeholder="Tìm theo tên tài liệu..." class="w-full pl-8 pr-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
                         </div>
-                        <div id="studentDocList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                        <div class="flex flex-wrap gap-1.5" id="studentDocCategoryFilter">
+                            <button type="button" data-cat="" onclick="setStudentDocCategoryFilter(this,'')" class="doc-filter-btn active px-2.5 py-1.5 bg-stone-800 text-white text-[11px] rounded-lg font-bold">Tất Cả</button>
+                            <button type="button" data-cat="Giáo Trình" onclick="setStudentDocCategoryFilter(this,'Giáo Trình')" class="doc-filter-btn px-2.5 py-1.5 bg-blue-100 text-blue-900 text-[11px] rounded-lg font-bold">Giáo Trình</button>
+                            <button type="button" data-cat="Đề Thi HK" onclick="setStudentDocCategoryFilter(this,'Đề Thi HK')" class="doc-filter-btn px-2.5 py-1.5 bg-emerald-100 text-emerald-900 text-[11px] rounded-lg font-bold">Đề Thi HK</button>
+                            <button type="button" data-cat="Bài Tập Lớn" onclick="setStudentDocCategoryFilter(this,'Bài Tập Lớn')" class="doc-filter-btn px-2.5 py-1.5 bg-purple-100 text-purple-900 text-[11px] rounded-lg font-bold">Đồ Án</button>
+                        </div>
                     </div>
+                    <div id="studentDocList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
                 </div>
 
-                <div id="adminPanelsStudentDocs" class="hidden space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
-                        <h3 id="formStudentDocTitle" class="text-base font-bold text-stone-800 mb-4 flex items-center">
-                            <i class="fa-solid fa-file-circle-plus text-red-900 mr-2"></i> Đăng Tài Liệu Sinh Viên
-                        </h3>
+                <div id="adminPanelsStudentDocs" class="hidden">
+                    <details class="bg-white rounded-2xl shadow-sm border border-stone-200/80 group overflow-hidden">
+                        <summary class="cursor-pointer select-none list-none p-5 font-bold text-stone-800 flex items-center justify-between">
+                            <span id="formStudentDocTitle" class="flex items-center"><i class="fa-solid fa-file-circle-plus text-red-900 mr-2"></i> Đăng Tài Liệu Sinh Viên</span>
+                            <i class="fa-solid fa-chevron-down text-stone-400 text-xs transition group-open:rotate-180"></i>
+                        </summary>
+                        <div class="px-5 pb-5 border-t border-stone-100 pt-5 max-w-xl">
                         <form id="studentDocForm" class="space-y-4">
                             <input type="hidden" id="editingStudentDocId">
                             <div>
@@ -348,36 +395,36 @@
                                 <button type="button" id="btnCancelEditStudentDoc" onclick="resetStudentDocForm()" class="btn-bouncy hidden bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-2 px-3 rounded-xl text-xs transition">Hủy</button>
                             </div>
                         </form>
-                    </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
             <!-- TAB 4: TÀI LIỆU ĐÓNG GÓP CHUNG -->
-            <div id="tabContentCommunityDocs" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
-                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
-                            <div>
-                                <h3 class="text-base font-extrabold text-stone-800 flex items-center">
-                                    <i class="fa-solid fa-users-line text-red-900 mr-2"></i> Kho Tài Liệu Đóng Góp Chung
-                                </h3>
-                                <p class="text-xs text-stone-500 mt-1">Mọi thành viên đều có thể tải file chia sẻ lên hệ thống!</p>
-                            </div>
-                            <span class="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[11px] rounded-lg font-bold">Cộng Đồng chia sẻ</span>
-                        </div>
-                        <div id="communityDocList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <div id="tabContentCommunityDocs" class="hidden space-y-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
+                    <div class="mb-4">
+                        <h3 class="text-base font-extrabold text-stone-800 flex items-center">
+                            <i class="fa-solid fa-users-line text-red-900 mr-2"></i> Kho Tài Liệu Đóng Góp Chung
+                        </h3>
+                        <p class="text-xs text-stone-500 mt-1">Mọi thành viên đều có thể tải file chia sẻ lên hệ thống!</p>
                     </div>
+                    <div class="relative mb-4">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs"></i>
+                        <input type="text" id="communityDocSearchInput" oninput="loadCommunityDocuments()" placeholder="Tìm theo tên tài liệu hoặc môn học..." class="w-full pl-8 pr-3 py-2 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-red-900">
+                    </div>
+                    <div id="communityDocList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
                 </div>
 
-                <div class="space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5">
-                        <h3 class="text-base font-bold text-stone-800 mb-2 flex items-center">
-                            <i class="fa-solid fa-upload text-emerald-700 mr-2"></i> Chia Sẻ Tài Liệu Của Bạn
-                        </h3>
+                <details class="bg-white rounded-2xl shadow-sm border border-stone-200/80 group overflow-hidden">
+                    <summary class="cursor-pointer select-none list-none p-5 font-bold text-stone-800 flex items-center justify-between">
+                        <span class="flex items-center"><i class="fa-solid fa-upload text-emerald-700 mr-2"></i> Chia Sẻ Tài Liệu Của Bạn</span>
+                        <i class="fa-solid fa-chevron-down text-stone-400 text-xs transition group-open:rotate-180"></i>
+                    </summary>
+                    <div class="px-5 pb-5 border-t border-stone-100 pt-5 max-w-xl">
                         <p class="text-xs text-stone-500 mb-4 leading-relaxed">
                             Đóng góp đề thi, bài giải hoặc tài liệu hay để hỗ trợ các thành viên khác cùng học tập.
                         </p>
-                        
                         <form id="communityUploadForm" class="space-y-4">
                             <div>
                                 <label class="block text-xs font-semibold text-stone-600 mb-1">Môn học / Chủ đề</label>
@@ -392,13 +439,12 @@
                                 <input type="file" id="communityFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.png,.jpg" class="w-full text-xs text-stone-500 bg-white border border-stone-200 rounded-lg p-1">
                                 <input type="url" id="communityLink" placeholder="Hoặc dán Link Google Drive / Onedrive..." class="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-700 bg-white">
                             </div>
-
                             <button type="submit" id="btnUploadCommunityDoc" class="btn-bouncy w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-emerald-800/20 flex items-center justify-center">
                                 <i class="fa-solid fa-share-nodes mr-1.5"></i> Đăng Tải Lên Cộng Đồng
                             </button>
                         </form>
                     </div>
-                </div>
+                </details>
             </div>
 
         </main>
