@@ -61,6 +61,106 @@ function validateLinksOrAlert(linksObj) {
 }
 
 // HÀM ĐỊNH DẠNG THỜI GIAN THỰC
+// ==========================================
+// CUSTOM DROPDOWN DÙNG CHUNG (thay cho <select> gốc để tránh việc
+// danh sách lựa chọn bị đè/chồng hình với nội dung phía dưới)
+// ==========================================
+function setupCustomDropdown(btnId, panelId, labelId, options, defaultValue, onChange) {
+    const btn = document.getElementById(btnId);
+    const panel = document.getElementById(panelId);
+    const label = document.getElementById(labelId);
+    if (!btn || !panel || !label) return null;
+ 
+    let currentValue = defaultValue || "";
+    let currentOptions = options;
+ 
+    function renderOptions() {
+        panel.innerHTML = "";
+        currentOptions.forEach(opt => {
+            const item = document.createElement("div");
+            item.className = "dropdown-option" + (opt.value === currentValue ? " active" : "");
+            item.textContent = opt.label;
+            item.addEventListener("click", () => {
+                currentValue = opt.value;
+                label.textContent = opt.label;
+                closePanel();
+                renderOptions();
+                if (onChange) onChange(currentValue);
+            });
+            panel.appendChild(item);
+        });
+    }
+ 
+    function openPanel() {
+        document.querySelectorAll('.dropdown-panel').forEach(p => { if (p !== panel) p.classList.add('hidden'); });
+        panel.classList.remove('hidden');
+    }
+    function closePanel() { panel.classList.add('hidden'); }
+ 
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.classList.contains('hidden') ? openPanel() : closePanel();
+    });
+    document.addEventListener('click', (e) => {
+        if (!panel.contains(e.target) && e.target !== btn) closePanel();
+    });
+ 
+    renderOptions();
+ 
+    return {
+        getValue: () => currentValue,
+        setOptions: (newOptions, newValue) => {
+            currentOptions = newOptions;
+            const found = currentOptions.find(o => o.value === (newValue !== undefined ? newValue : currentValue));
+            currentValue = found ? found.value : (currentOptions[0] ? currentOptions[0].value : "");
+            label.textContent = found ? found.label : (currentOptions[0] ? currentOptions[0].label : "");
+            renderOptions();
+        }
+    };
+}
+ 
+let filterClassDropdown = null;
+let filterChapterDropdown = null;
+ 
+function initLessonFilters() {
+    if (filterClassDropdown) return;
+    filterClassDropdown = setupCustomDropdown(
+        "filterClassBtn", "filterClassPanel", "filterClassLabel",
+        [
+            { value: "", label: "Tất Cả Bài Giảng" },
+            { value: "tong-on", label: "Phần Tổng Ôn" },
+            { value: "10", label: "Lớp 10" },
+            { value: "11", label: "Lớp 11" },
+            { value: "12", label: "Lớp 12" },
+            { value: "casio-hsa", label: "Casio HSA" }
+        ],
+        "",
+        () => loadLessons()
+    );
+    filterChapterDropdown = setupCustomDropdown(
+        "filterChapterBtn", "filterChapterPanel", "filterChapterLabel",
+        [{ value: "", label: "Tất cả chương" }],
+        "",
+        () => loadLessons()
+    );
+}
+initLessonFilters();
+ 
+// ==========================================
+// CHẤT LƯỢNG HIỂN THỊ VIDEO
+// ==========================================
+let currentSharpenLevel = 'off';
+window.setSharpenLevel = function(level, btnEl) {
+    currentSharpenLevel = level;
+    document.querySelectorAll('.sharpen-btn').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    const el = document.querySelector('#videoContainer .video-el');
+    if (el) {
+        el.classList.remove('sharpen-off', 'sharpen-medium', 'sharpen-high');
+        el.classList.add(level === 'medium' ? 'sharpen-medium' : level === 'high' ? 'sharpen-high' : 'sharpen-off');
+    }
+};
+ 
 function formatTimestamp(timestamp) {
     if (!timestamp) return 'Gần đây';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -132,12 +232,32 @@ function toggleAuthMode() {
     document.getElementById('btnToggleAuth').innerText = isLoginMode ? "Chưa có tài khoản? Đăng ký ngay" : "Đã có tài khoản? Quay lại đăng nhập";
 }
 
+// ==========================================
+// QUẢN LÝ VÒNG ĐỜI LISTENER: theo dõi tất cả các onSnapshot đang hoạt
+// động để hủy sạch mỗi khi chuyển tài khoản / đăng xuất, tránh việc
+// listener của tài khoản cũ tiếp tục ghi đè dữ liệu vào phiên mới.
+// ==========================================
+let activeListeners = [];
+function trackListener(unsubscribeFn) {
+    activeListeners.push(unsubscribeFn);
+    return unsubscribeFn;
+}
+function clearActiveListeners() {
+    activeListeners.forEach(unsub => { try { unsub(); } catch (e) {} });
+    activeListeners = [];
+}
+
 function showLoginScreen() {
+    clearActiveListeners();
+    clearInterval(presenceInterval);
+    clearInterval(window.__accountsRefreshInterval);
     document.getElementById("loginScreen").classList.remove("hidden");
     document.getElementById("appContainer").classList.add("hidden");
 }
 
 function showDashboard() {
+    clearActiveListeners(); // dọn sạch listener của phiên trước (nếu có) trước khi bắt đầu phiên mới
+
     document.getElementById("loginScreen").classList.add("hidden");
     document.getElementById("appContainer").classList.remove("hidden");
     
@@ -169,7 +289,7 @@ function showDashboard() {
         
         const studentId = localStorage.getItem("studentId");
         if (studentId) {
-            db.collection("students").doc(studentId).onSnapshot((doc) => {
+            trackListener(db.collection("students").doc(studentId).onSnapshot((doc) => {
                 if (!doc.exists) {
                     showCustomAlert("Tài khoản của bạn đã bị vô hiệu hóa!");
                     doLogoutLogic();
@@ -180,13 +300,58 @@ function showDashboard() {
                         doLogoutLogic();
                     }
                 }
-            });
+            }));
         }
     }
+    // Reset trạng thái xem video/bộ lọc về mặc định cho phiên đăng nhập mới,
+    // tránh việc video/lựa chọn lọc của tài khoản trước còn sót lại trên giao diện.
+    const videoContainer = document.getElementById("videoContainer");
+    if (videoContainer) {
+        videoContainer.innerHTML = `
+            <div class="text-center text-stone-400 p-6">
+                <i class="fa-solid fa-circle-play text-6xl mb-3 text-red-800 opacity-80"></i>
+                <p class="font-semibold text-stone-300">Chọn một bài học ở danh sách bên dưới để bắt đầu xem</p>
+            </div>`;
+    }
+
     loadLessons();
     loadDocuments();
     loadStudentDocuments();
     loadCommunityDocuments();
+    startPresenceHeartbeat();
+}
+
+// ==========================================
+// PRESENCE: cập nhật "đang online" theo thời gian thực thay vì chỉ
+// dựa vào lúc đăng nhập/đăng xuất (không chính xác khi tắt trình
+// duyệt đột ngột). Cứ mỗi 20s ghi lại lastActive, phía hiển thị coi
+// tài khoản là online nếu lastActive cách đây chưa quá 40s.
+// ==========================================
+let presenceInterval = null;
+function startPresenceHeartbeat() {
+    const studentId = localStorage.getItem("studentId");
+    if (!studentId) return;
+    const beat = () => {
+        db.collection("students").doc(studentId).update({
+            lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+            status: 'online'
+        }).catch(() => {});
+    };
+    beat();
+    clearInterval(presenceInterval);
+    presenceInterval = setInterval(beat, 20000);
+
+    window.addEventListener("beforeunload", () => {
+        // Cố gắng đánh dấu offline ngay khi đóng tab (không đảm bảo 100%,
+        // nhưng cơ chế lastActive hết hạn ở trên sẽ tự bù nếu lệnh này không kịp gửi)
+        db.collection("students").doc(studentId).update({ status: 'offline' }).catch(() => {});
+    });
+}
+
+function isAccountOnline(data) {
+    if (!data.lastActive || typeof data.lastActive.toDate !== 'function') return false;
+    const diffMs = Date.now() - data.lastActive.toDate().getTime();
+    return diffMs < 40000; // còn hoạt động trong 40 giây gần nhất
 }
 
 document.getElementById("registerForm").addEventListener("submit", async (e) => {
@@ -272,6 +437,7 @@ window.logout = function() {
 };
 
 async function doLogoutLogic() {
+    clearInterval(presenceInterval);
     const studentId = localStorage.getItem("studentId");
     if (studentId) {
         try { await db.collection("students").doc(studentId).update({ status: 'offline' }); } catch (e) {}
@@ -330,12 +496,15 @@ if (lessonForm) {
         const videoLink = document.getElementById("lessonVideoLink").value.trim();
         const docLink = document.getElementById("lessonDocLink").value.trim();
         const answerLink = document.getElementById("lessonAnswerLink").value.trim();
+        const answerVideoLink = document.getElementById("lessonAnswerVideoLink")?.value.trim() || "";
+        const maxDownloads = parseInt(document.getElementById("lessonMaxDownloads")?.value, 10) || 0;
 
-        if (!validateLinksOrAlert({ "Link Video": videoLink, "Link Tài liệu": docLink, "Link Đáp án": answerLink })) return;
+        if (!validateLinksOrAlert({ "Link Video": videoLink, "Link Tài liệu": docLink, "Link Đáp án": answerLink, "Link Video Chữa Bài": answerVideoLink })) return;
 
         const videoFile = document.getElementById("videoFile").files[0];
         const docFile = document.getElementById("docFile").files[0];
         const hwFile = document.getElementById("hwFile").files[0];
+        const answerVideoFile = document.getElementById("answerVideoFile")?.files[0];
         
         const editingId = document.getElementById("editingLessonId").value;
         const btnUpload = document.getElementById("btnUploadLesson");
@@ -349,7 +518,8 @@ if (lessonForm) {
                 class: lessonClass, 
                 chapter: lessonChapter, 
                 docLink: docLink, 
-                answerLink: answerLink 
+                answerLink: answerLink,
+                maxDownloads: maxDownloads
             };
 
             btnUpload.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Tải file...';
@@ -360,8 +530,16 @@ if (lessonForm) {
                 updateData.videoUrl = videoLink;
             }
 
+            if (answerVideoFile) {
+                updateData.answerVideoUrl = await uploadFileToCloudinary(answerVideoFile);
+            } else if (answerVideoLink) {
+                updateData.answerVideoUrl = answerVideoLink;
+            }
+
             if (docFile) updateData.docFileUrl = await uploadFileToCloudinary(docFile);
             if (hwFile) updateData.hwFileUrl = await uploadFileToCloudinary(hwFile);
+
+            if (!editingId) updateData.downloadCount = 0;
 
             if (editingId) {
                 btnUpload.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Cập nhật...';
@@ -385,14 +563,13 @@ if (lessonForm) {
 
 function loadLessons() {
     const lessonList = document.getElementById("lessonList");
-    const filterClass = document.getElementById("filterClass")?.value || "";
-    const filterChapterElem = document.getElementById("filterChapter");
-    const selectedChapter = filterChapterElem ? filterChapterElem.value.toLowerCase() : "";
+    const filterClass = filterClassDropdown ? filterClassDropdown.getValue() : "";
+    const selectedChapter = filterChapterDropdown ? filterChapterDropdown.getValue().toLowerCase() : "";
     
     if (!lessonList) return;
     const role = localStorage.getItem("userRole");
 
-    db.collection("lessons").orderBy("createdAt", "asc").onSnapshot((snapshot) => {
+    trackListener(db.collection("lessons").orderBy("createdAt", "asc").onSnapshot((snapshot) => {
         lessonList.innerHTML = "";
         if (snapshot.empty) {
             lessonList.innerHTML = '<p class="text-stone-400 text-xs p-4 text-center">Chưa có bài học nào.</p>';
@@ -451,7 +628,7 @@ function loadLessons() {
             tongOnHeader.innerHTML = `
                 <div class="flex items-center space-x-2 bg-gradient-to-r from-amber-800 to-amber-900 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider mb-2.5 shadow-xs">
                     <i class="fa-solid fa-star text-amber-300"></i>
-                    <span>PHẦN TỔNG ÔN TẬP</span>
+                    <span>PHẦN TỔNG ÔN</span>
                 </div>
             `;
             const tongOnContainer = document.createElement("div");
@@ -487,21 +664,16 @@ function loadLessons() {
         }
 
         updateChapterDropdown(uniqueChapters, selectedChapter);
-    });
+    }));
 }
 
 function updateChapterDropdown(uniqueChapters, currentSelected) {
-    const dropdown = document.getElementById("filterChapter");
-    if (!dropdown) return;
-
-    dropdown.innerHTML = '<option value="">Tất cả chương</option>';
+    if (!filterChapterDropdown) return;
+    const options = [{ value: "", label: "Tất cả chương" }];
     Array.from(uniqueChapters).sort().forEach(ch => {
-        const option = document.createElement("option");
-        option.value = ch.toLowerCase();
-        option.textContent = ch;
-        if (option.value === currentSelected) option.selected = true;
-        dropdown.appendChild(option);
+        options.push({ value: ch.toLowerCase(), label: ch });
     });
+    filterChapterDropdown.setOptions(options, currentSelected || "");
 }
 
 // SỬ DỤNG DOM API AN TOÀN CHO BÀI HỌC
@@ -530,9 +702,10 @@ function renderLessonItemDOM(lesson, indexNum, role) {
     const metaDiv = document.createElement("div");
     metaDiv.className = "flex items-center space-x-2 mt-1 flex-wrap gap-y-1";
 
-    const isTongOnClass = lesson.class === 'tong-on';
-    const badgeText = isTongOnClass ? 'Tổng Ôn' : `Lớp ${lesson.class || '10'}`;
-    const badgeClass = isTongOnClass ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-orange-50 text-red-900 border border-orange-200';
+    const classLabelMap = { 'tong-on': 'Tổng Ôn', 'casio-hsa': 'Casio HSA' };
+    const isNumericClass = /^\d+$/.test(lesson.class || '');
+    const badgeText = classLabelMap[lesson.class] || (isNumericClass ? `Lớp ${lesson.class}` : (lesson.class || 'Lớp 10'));
+    const badgeClass = lesson.class === 'tong-on' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-orange-50 text-red-900 border border-orange-200';
 
     const spanBadge = document.createElement("span");
     spanBadge.className = `text-[9px] ${badgeClass} px-1.5 py-0.5 rounded font-bold`;
@@ -547,14 +720,42 @@ function renderLessonItemDOM(lesson, indexNum, role) {
     metaDiv.appendChild(spanTime);
 
     const finalDocUrl = lesson.docFileUrl || lesson.docLink || lesson.docUrl;
+    const maxDl = parseInt(lesson.maxDownloads, 10) || 0;
+    const dlCount = parseInt(lesson.downloadCount, 10) || 0;
+    const limitReached = maxDl > 0 && dlCount >= maxDl;
+
     if (finalDocUrl && isSafeUrl(finalDocUrl)) {
-        const aDoc = document.createElement("a");
-        aDoc.href = finalDocUrl;
-        aDoc.target = "_blank";
-        aDoc.className = "btn-bouncy text-[10px] bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200 font-bold";
-        aDoc.innerHTML = '<i class="fa-solid fa-file-pdf mr-1"></i> Tài liệu';
-        aDoc.addEventListener("click", (e) => e.stopPropagation());
-        metaDiv.appendChild(aDoc);
+        if (limitReached) {
+            const spanLimited = document.createElement("span");
+            spanLimited.className = "text-[10px] bg-stone-200 text-stone-500 px-2 py-0.5 rounded-md border border-stone-300 font-bold";
+            spanLimited.innerHTML = '<i class="fa-solid fa-ban mr-1"></i> Hết lượt tải';
+            metaDiv.appendChild(spanLimited);
+        } else {
+            const aDoc = document.createElement("a");
+            aDoc.href = finalDocUrl;
+            aDoc.target = "_blank";
+            aDoc.className = "btn-bouncy text-[10px] bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200 font-bold";
+            aDoc.innerHTML = maxDl > 0
+                ? `<i class="fa-solid fa-file-pdf mr-1"></i> Tài liệu (còn ${maxDl - dlCount} lượt)`
+                : '<i class="fa-solid fa-file-pdf mr-1"></i> Tài liệu';
+            aDoc.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (lesson.id) incrementLessonDownload(lesson.id);
+            });
+            metaDiv.appendChild(aDoc);
+        }
+    }
+
+    const finalAnswerVideoUrl = lesson.answerVideoUrl;
+    if (finalAnswerVideoUrl && isSafeUrl(finalAnswerVideoUrl)) {
+        const aAnsVideo = document.createElement("span");
+        aAnsVideo.className = "btn-bouncy text-[10px] bg-rose-50 text-rose-900 px-2 py-0.5 rounded-md border border-rose-200 font-bold cursor-pointer";
+        aAnsVideo.innerHTML = '<i class="fa-solid fa-chalkboard-user mr-1"></i> Video chữa bài';
+        aAnsVideo.addEventListener("click", (e) => {
+            e.stopPropagation();
+            playVideo(finalAnswerVideoUrl);
+        });
+        metaDiv.appendChild(aAnsVideo);
     }
 
     const finalHwUrl = lesson.hwFileUrl || lesson.answerLink;
@@ -603,6 +804,12 @@ function renderLessonItemDOM(lesson, indexNum, role) {
     return item;
 }
 
+function incrementLessonDownload(lessonId) {
+    db.collection("lessons").doc(lessonId).update({
+        downloadCount: firebase.firestore.FieldValue.increment(1)
+    }).catch(() => {});
+}
+ 
 window.playVideo = function(url) {
     const container = document.getElementById("videoContainer");
     const role = localStorage.getItem("userRole");
@@ -643,11 +850,21 @@ window.playVideo = function(url) {
         } else if (url.includes("youtu.be/")) {
             embedUrl = url.replace("youtu.be/", "youtube.com/embed/");
         }
-        container.innerHTML = `<iframe class="w-full h-full rounded-2xl" src="${escapeHTML(embedUrl)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        container.innerHTML = `<iframe class="w-full h-full rounded-2xl video-el sharpen-${currentSharpenLevel}" src="${escapeHTML(embedUrl)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
     } else {
-        container.innerHTML = `<video controls autoplay class="w-full h-full object-contain bg-black rounded-2xl"><source src="${escapeHTML(url)}" type="video/mp4">Trình duyệt không hỗ trợ xem video trực tiếp.</video>`;
+        container.innerHTML = `<video controls autoplay class="w-full h-full object-contain bg-black rounded-2xl video-el sharpen-${currentSharpenLevel}"><source src="${escapeHTML(url)}" type="video/mp4">Trình duyệt không hỗ trợ xem video trực tiếp.</video>`;
     }
 };
+
+// Mở khung <details> quản trị đang gập (nếu có) và cuộn tới form khi bấm "Sửa",
+// vì sau khi gộp form vào khung gập, form có thể đang ẩn nếu admin chưa bấm mở.
+function openAdminDetailsAndScrollTo(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const details = form.closest('details');
+    if (details) details.open = true;
+    setTimeout(() => form.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
 
 window.editLesson = function(id, title, lessonClass, chapter) {
     document.getElementById("editingLessonId").value = id;
@@ -660,6 +877,7 @@ window.editLesson = function(id, title, lessonClass, chapter) {
     btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Lưu Cập Nhật';
     btn.className = "btn-bouncy flex-1 bg-amber-800 hover:bg-amber-900 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md shadow-amber-900/20";
     document.getElementById("btnCancelEdit").classList.remove("hidden");
+    openAdminDetailsAndScrollTo("lessonForm");
 };
 
 window.resetLessonForm = function() {
@@ -707,62 +925,84 @@ window.grantVideoAccess = async function() {
     }
 };
 
+let latestAccountsSnapshot = null;
 function loadAccountsList() {
     const container = document.getElementById("accountListContainer");
     if (!container) return;
 
-    db.collection("students").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-        container.innerHTML = "";
-        if (snapshot.empty) {
-            container.innerHTML = '<p class="text-xs text-stone-400">Chưa có tài khoản nào.</p>';
-            return;
-        }
+    trackListener(db.collection("students").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+        latestAccountsSnapshot = snapshot;
+        renderAccountsList();
+    }));
 
-        let studentCount = 0;
+    // Tự vẽ lại định kỳ để chấm online/offline "hết hạn" đúng lúc,
+    // kể cả khi không có ghi dữ liệu mới nào xảy ra trong lúc đó.
+    clearInterval(window.__accountsRefreshInterval);
+    window.__accountsRefreshInterval = setInterval(renderAccountsList, 10000);
+}
 
-        snapshot.forEach((doc) => {
-            const acc = doc.data();
-            if (acc.role === "admin") return;
+function renderAccountsList() {
+    const container = document.getElementById("accountListContainer");
+    const snapshot = latestAccountsSnapshot;
+    if (!container || !snapshot) return;
 
-            studentCount++;
-            const isOnline = acc.status === 'online';
-            const dotClass = isOnline ? 'status-online' : 'status-offline';
+    container.innerHTML = "";
+    if (snapshot.empty) {
+        container.innerHTML = '<p class="text-xs text-stone-400">Chưa có tài khoản nào.</p>';
+        return;
+    }
 
-            const accessStatus = acc.hasVideoAccess 
-                ? '<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check"></i> Đã cấp quyền</span>' 
-                : '<span class="text-amber-800 font-bold"><i class="fa-solid fa-lock"></i> Chưa cấp quyền</span>';
+    let studentCount = 0;
 
-            const item = document.createElement("div");
-            item.className = "flex flex-col p-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs gap-1.5";
-            
-            const topRow = document.createElement("div");
-            topRow.className = "flex items-center justify-between";
-            
-            const leftInfo = document.createElement("div");
-            leftInfo.className = "flex items-center space-x-1.5";
-            
-            const spanDot = document.createElement("span");
-            spanDot.className = `status-dot ${dotClass}`;
-            
-            const spanName = document.createElement("span");
-            spanName.className = "font-extrabold text-stone-800 text-xs";
-            spanName.textContent = acc.name || '';
-            
-            leftInfo.appendChild(spanDot);
-            leftInfo.appendChild(spanName);
-            
-            const rightBtns = document.createElement("div");
-            rightBtns.className = "flex items-center space-x-1";
-            
-            const toggleBtn = document.createElement("button");
-            toggleBtn.className = acc.hasVideoAccess 
-                ? "btn-bouncy text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 transition" 
-                : "btn-bouncy text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-1 rounded-lg border border-emerald-300 transition";
-            toggleBtn.innerHTML = acc.hasVideoAccess ? '<i class="fa-solid fa-user-slash mr-1"></i>Thu hồi' : '<i class="fa-solid fa-key mr-1"></i>Cấp quyền';
-            toggleBtn.addEventListener("click", () => toggleVideoAccess(doc.id, !acc.hasVideoAccess));
-            
-            const delAccBtn = document.createElement("button");
-            delAccBtn.className = "btn-bouncy text-rose-600 hover:bg-rose-100 p-1 rounded-lg transition";
+    snapshot.forEach((doc) => {
+        const acc = doc.data();
+        if (acc.role === "admin") return;
+
+        studentCount++;
+        const isOnline = isAccountOnline(acc);
+        const dotClass = isOnline ? 'status-online' : 'status-offline';
+
+        const accessStatus = acc.hasVideoAccess 
+            ? '<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check"></i> Đã cấp quyền</span>' 
+            : '<span class="text-amber-800 font-bold"><i class="fa-solid fa-lock"></i> Chưa cấp quyền</span>';
+
+        const item = document.createElement("div");
+        item.className = "flex flex-col p-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs gap-1.5";
+        
+        const topRow = document.createElement("div");
+        topRow.className = "flex items-center justify-between";
+        
+        const leftInfo = document.createElement("div");
+        leftInfo.className = "flex items-center space-x-1.5";
+        
+        const spanDot = document.createElement("span");
+        spanDot.className = `status-dot ${dotClass}`;
+        spanDot.title = isOnline ? "Đang online" : "Offline";
+        
+        const spanName = document.createElement("span");
+        spanName.className = "font-extrabold text-stone-800 text-xs";
+        spanName.textContent = acc.name || '';
+
+        const spanStatusText = document.createElement("span");
+        spanStatusText.className = isOnline ? "text-[10px] text-emerald-600 font-bold" : "text-[10px] text-stone-400 font-semibold";
+        spanStatusText.textContent = isOnline ? "Online" : "Offline";
+        
+        leftInfo.appendChild(spanDot);
+        leftInfo.appendChild(spanName);
+        leftInfo.appendChild(spanStatusText);
+        
+        const rightBtns = document.createElement("div");
+        rightBtns.className = "flex items-center space-x-1";
+        
+        const toggleBtn = document.createElement("button");
+        toggleBtn.className = acc.hasVideoAccess 
+            ? "btn-bouncy text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 transition" 
+            : "btn-bouncy text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-1 rounded-lg border border-emerald-300 transition";
+        toggleBtn.innerHTML = acc.hasVideoAccess ? '<i class="fa-solid fa-user-slash mr-1"></i>Thu hồi' : '<i class="fa-solid fa-key mr-1"></i>Cấp quyền';
+        toggleBtn.addEventListener("click", () => toggleVideoAccess(doc.id, !acc.hasVideoAccess));
+        
+        const delAccBtn = document.createElement("button");
+        delAccBtn.className = "btn-bouncy text-rose-600 hover:bg-rose-100 p-1 rounded-lg transition";
             delAccBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
             delAccBtn.addEventListener("click", () => deleteAccount(doc.id));
             
@@ -784,12 +1024,11 @@ function loadAccountsList() {
             item.appendChild(midRow);
             item.appendChild(botRow);
             container.appendChild(item);
-        });
-
-        if (studentCount === 0) {
-            container.innerHTML = '<p class="text-xs text-stone-400">Chưa có tài khoản học sinh nào.</p>';
-        }
     });
+
+    if (studentCount === 0) {
+        container.innerHTML = '<p class="text-xs text-stone-400">Chưa có tài khoản học sinh nào.</p>';
+    }
 }
 
 window.toggleVideoAccess = async function(docId, enable) {
@@ -856,15 +1095,32 @@ if (docManagerForm) {
     });
 }
 
+let docCategoryFilterValue = "";
+window.setDocCategoryFilter = function(btnEl, cat) {
+    docCategoryFilterValue = cat;
+    document.querySelectorAll('#docCategoryFilter .doc-filter-btn').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+    loadDocuments();
+};
+
 function loadDocuments() {
     const list = document.getElementById("documentList");
     if (!list) return;
     const role = localStorage.getItem("userRole");
 
-    db.collection("documents").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    trackListener(db.collection("documents").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
         list.innerHTML = "";
-        if (snapshot.empty) {
-            list.innerHTML = '<p class="text-xs text-stone-400 col-span-2 text-center py-6">Chưa có tài liệu nào trong kho.</p>';
+
+        const searchText = (document.getElementById("docSearchInput")?.value || "").trim().toLowerCase();
+        const filteredDocs = snapshot.docs.filter((doc) => {
+            const data = doc.data();
+            if (docCategoryFilterValue && data.category !== docCategoryFilterValue) return false;
+            if (searchText && !(data.title || "").toLowerCase().includes(searchText)) return false;
+            return true;
+        });
+
+        if (filteredDocs.length === 0) {
+            list.innerHTML = '<p class="text-xs text-stone-400 col-span-2 text-center py-6">Không tìm thấy tài liệu phù hợp.</p>';
             return;
         }
 
@@ -874,7 +1130,7 @@ function loadDocuments() {
             'DGTD': 'bg-rose-100 text-rose-900'
         };
 
-        snapshot.forEach((doc) => {
+        filteredDocs.forEach((doc) => {
             const data = doc.data();
             const id = doc.id;
             
@@ -940,7 +1196,7 @@ function loadDocuments() {
             item.appendChild(botDiv);
             list.appendChild(item);
         });
-    });
+    }));
 }
 
 window.editDoc = function(id, title, category) {
@@ -953,6 +1209,7 @@ window.editDoc = function(id, title, category) {
     btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Lưu Cập Nhật';
     document.getElementById("btnCancelEditDoc").classList.remove("hidden");
     switchTab('docs');
+    openAdminDetailsAndScrollTo("docManagerForm");
 };
 
 window.resetDocForm = function() {
@@ -1012,15 +1269,32 @@ if (studentDocForm) {
     });
 }
 
+let studentDocCategoryFilterValue = "";
+window.setStudentDocCategoryFilter = function(btnEl, cat) {
+    studentDocCategoryFilterValue = cat;
+    document.querySelectorAll('#studentDocCategoryFilter .doc-filter-btn').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+    loadStudentDocuments();
+};
+
 function loadStudentDocuments() {
     const list = document.getElementById("studentDocList");
     if (!list) return;
     const role = localStorage.getItem("userRole");
 
-    db.collection("student_documents").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    trackListener(db.collection("student_documents").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
         list.innerHTML = "";
-        if (snapshot.empty) {
-            list.innerHTML = '<p class="text-xs text-stone-400 col-span-2 text-center py-6">Chưa có tài liệu sinh viên nào.</p>';
+
+        const searchText = (document.getElementById("studentDocSearchInput")?.value || "").trim().toLowerCase();
+        const filteredDocs = snapshot.docs.filter((doc) => {
+            const data = doc.data();
+            if (studentDocCategoryFilterValue && data.category !== studentDocCategoryFilterValue) return false;
+            if (searchText && !(data.title || "").toLowerCase().includes(searchText)) return false;
+            return true;
+        });
+
+        if (filteredDocs.length === 0) {
+            list.innerHTML = '<p class="text-xs text-stone-400 col-span-2 text-center py-6">Không tìm thấy tài liệu phù hợp.</p>';
             return;
         }
 
@@ -1031,7 +1305,7 @@ function loadStudentDocuments() {
             'Chuyên Ngành': 'bg-orange-100 text-orange-900'
         };
 
-        snapshot.forEach((doc) => {
+        filteredDocs.forEach((doc) => {
             const data = doc.data();
             const id = doc.id;
             
@@ -1092,7 +1366,7 @@ function loadStudentDocuments() {
             item.appendChild(botDiv);
             list.appendChild(item);
         });
-    });
+    }));
 }
 
 window.editStudentDoc = function(id, title, category) {
@@ -1105,6 +1379,7 @@ window.editStudentDoc = function(id, title, category) {
     btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Lưu Cập Nhật';
     document.getElementById("btnCancelEditStudentDoc").classList.remove("hidden");
     switchTab('studentDocs');
+    openAdminDetailsAndScrollTo("studentDocForm");
 };
 
 window.resetStudentDocForm = function() {
@@ -1181,14 +1456,23 @@ function loadCommunityDocuments() {
     const currentRole = localStorage.getItem("userRole");
     const currentUserId = localStorage.getItem("studentId");
 
-    db.collection("community_documents").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+    trackListener(db.collection("community_documents").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
         list.innerHTML = "";
-        if (snapshot.empty) {
-            list.innerHTML = '<p class="text-xs text-stone-400 col-span-2 text-center py-6">Chưa có tài liệu đóng góp nào. Hãy là người đầu tiên chia sẻ!</p>';
+
+        const searchText = (document.getElementById("communityDocSearchInput")?.value || "").trim().toLowerCase();
+        const filteredDocs = snapshot.docs.filter((doc) => {
+            const data = doc.data();
+            if (!searchText) return true;
+            const haystack = `${data.title || ''} ${data.subject || ''}`.toLowerCase();
+            return haystack.includes(searchText);
+        });
+
+        if (filteredDocs.length === 0) {
+            list.innerHTML = '<p class="text-xs text-stone-400 col-span-2 text-center py-6">Không tìm thấy tài liệu phù hợp.</p>';
             return;
         }
 
-        snapshot.forEach((doc) => {
+        filteredDocs.forEach((doc) => {
             const data = doc.data();
             const id = doc.id;
             const finalUrl = data.fileUrl;
@@ -1246,7 +1530,7 @@ function loadCommunityDocuments() {
             item.appendChild(botDiv);
             list.appendChild(item);
         });
-    });
+    }));
 }
 
 window.deleteCommunityDoc = function(id) {
